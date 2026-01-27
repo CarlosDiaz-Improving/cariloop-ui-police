@@ -1,0 +1,24 @@
+{
+  "name": "cariloop-ui-police",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "capture": "bun run src/capture.ts",
+    "compare": "bun run src/compare.ts",
+    "report": "bun run src/report.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/pngjs": "^6.0.5"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "pixelmatch": "^7.1.0",
+    "playwright": "^1.58.0",
+    "pngjs": "^7.0.0"
+  }
+}
