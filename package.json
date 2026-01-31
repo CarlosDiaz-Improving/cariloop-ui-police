@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run src/index.ts",
+    "start": "./run.sh",
+    "start:direct": "bun run src/index.ts",
     "capture": "bun run src/capture.ts",
     "compare": "bun run src/compare.ts",
     "report": "bun run src/report.ts"

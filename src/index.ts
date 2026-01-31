@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { spawn } from "child_process";
 
 // Core imports
 import { captureAll } from "./core/capture";
@@ -16,6 +17,7 @@ import {
   loadProgress,
   deleteProgress,
   allEnvironmentsComplete,
+  hasEnvironmentMismatch,
   type ProgressManifest,
 } from "./core/progress";
 import {
@@ -121,6 +123,28 @@ function determineRunMode(existing: ProgressManifest | null, existingLog: Intera
   }
 
   if (allEnvironmentsComplete(existing)) {
+    // Check if there's a mismatch (e.g., dev has 21 pages but local only has 2)
+    if (hasEnvironmentMismatch(existing)) {
+      console.log(`${style.warning("⚠ Environments have different page counts!")}\n`);
+      console.log(`${style.muted("Some environments may need to capture more pages.")}\n`);
+      
+      const options = [
+        { key: "1", label: "Resume (continue capturing missing pages)" },
+        { key: "2", label: "Compare only (use whatever screenshots exist)" },
+        { key: "3", label: "Restart fresh (delete all and recapture)" },
+      ];
+      if (existingLog && existingLog.summary.failed > 0) {
+        options.push({ key: "4", label: "Retry failed interactions only" });
+      }
+      printMenu("What would you like to do?", options);
+      
+      const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
+      if (choice === "2") return "compare-only";
+      if (choice === "3") return "fresh";
+      if (choice === "4" && existingLog?.summary.failed) return "retry-failed";
+      return "resume";
+    }
+    
     console.log(`${style.info("All environments were fully captured in a previous run.")}\n`);
     
     const options = [
@@ -262,8 +286,24 @@ async function main() {
   
   console.log("");
   
+  // Open report in browser
+  log.action("Opening report in browser...");
+  const fullReportPath = path.resolve(reportPath);
+  
+  // Use 'open' on macOS, 'xdg-open' on Linux, 'start' on Windows
+  const openCommand = process.platform === "darwin" ? "open" 
+    : process.platform === "win32" ? "start" 
+    : "xdg-open";
+  
+  spawn(openCommand, [fullReportPath], { 
+    detached: true, 
+    stdio: "ignore" 
+  }).unref();
+  
+  console.log("");
+  
   // Show option to run again
-  console.log(`  ${style.dim("To run again, use")} ${style.orange("bun run start")}`);
+  console.log(`  ${style.dim("Press")} ${style.orange("'r'")} ${style.dim("to run again")}`);
   console.log("");
 }
 

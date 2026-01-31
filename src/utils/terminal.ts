@@ -297,13 +297,11 @@ export function printMinikubeReminder() {
   console.log(`    ${style.orange(symbols.bullet)} Tunnel is active: ${style.cyan("minikube tunnel")}`);
   console.log(`    ${style.orange(symbols.bullet)} Project is deployed in Minikube`);
   console.log("");
-  console.log(`  ${style.dim("If the script gets stuck, press")} ${style.orange("Ctrl+C")} ${style.dim("and run again")}`);
-  console.log("");
 }
 
 /**
  * Display reload hint
  */
 export function printReloadHint() {
-  console.log(`\n  ${style.dim("💡 Tip: Use")} ${style.orange("bun run start")} ${style.dim("to run again")}\n`);
+  console.log(`\n  ${style.dim("💡 When finished, you can press")} ${style.orange("'r'")} ${style.dim("to run again")}\n`);
 }

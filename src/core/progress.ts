@@ -144,11 +144,35 @@ export function isEnvironmentComplete(
   envName: string
 ): boolean {
   const env = manifest.environments[envName];
-  return env?.complete ?? false;
+  if (!env?.complete) return false;
+  
+  // Also verify that the environment has captured the expected number of pages
+  const expectedPages = manifest.discoveredPages.length;
+  if (expectedPages > 0 && env.capturedPages.length < expectedPages) {
+    return false; // Incomplete - fewer pages than discovered
+  }
+  
+  return true;
 }
 
 export function allEnvironmentsComplete(manifest: ProgressManifest): boolean {
   return environments.every((e) => isEnvironmentComplete(manifest, e.name));
+}
+
+/**
+ * Check if there's a mismatch between environments (one has more pages than another)
+ */
+export function hasEnvironmentMismatch(manifest: ProgressManifest): boolean {
+  const pageCounts = environments.map((e) => {
+    const env = manifest.environments[e.name];
+    return env?.capturedPages.length ?? 0;
+  });
+  
+  // If any environment has pages but counts differ
+  const maxPages = Math.max(...pageCounts);
+  const minPages = Math.min(...pageCounts);
+  
+  return maxPages > 0 && minPages < maxPages;
 }
 
 export function printProgressSummary(manifest: ProgressManifest): void {
