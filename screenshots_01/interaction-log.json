@@ -1,0 +1,612 @@
+{
+  "startedAt": "2026-01-27T19:15:19.539Z",
+  "lastUpdated": "2026-01-27T19:22:06.976Z",
+  "summary": {
+    "total": 60,
+    "success": 60,
+    "failed": 0,
+    "skipped": 0
+  },
+  "entries": [
+    {
+      "environment": "dev",
+      "pagePath": "/admin/call-activity",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-call-activity__sidebar-services.png",
+      "duration": 921,
+      "timestamp": "2026-01-27T19:15:30.638Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/channels",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-channels__sidebar-services.png",
+      "duration": 938,
+      "timestamp": "2026-01-27T19:15:34.354Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/dashboard",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-dashboard__sidebar-services.png",
+      "duration": 908,
+      "timestamp": "2026-01-27T19:15:37.885Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/jobs",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-jobs__sidebar-services.png",
+      "duration": 906,
+      "timestamp": "2026-01-27T19:15:41.473Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/mobile-config",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-mobile-config__sidebar-services.png",
+      "duration": 906,
+      "timestamp": "2026-01-27T19:15:45.073Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/needs",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-needs__sidebar-services.png",
+      "duration": 934,
+      "timestamp": "2026-01-27T19:15:48.740Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/needs",
+      "interactionId": "lang-selector",
+      "description": "Click language selector to show language options",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-needs__lang-selector.png",
+      "duration": 968,
+      "timestamp": "2026-01-27T19:15:50.427Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/needs",
+      "interactionId": "need-category-select",
+      "description": "Click on first need category to show subcategories",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-needs__need-category-select.png",
+      "duration": 925,
+      "timestamp": "2026-01-27T19:15:52.292Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/notifications",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-notifications__sidebar-services.png",
+      "duration": 923,
+      "timestamp": "2026-01-27T19:15:55.925Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/organizations",
+      "interactionId": "row-menu-first",
+      "description": "Click first row's 3-dot menu button to reveal actions",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-organizations__row-menu-first.png",
+      "duration": 933,
+      "timestamp": "2026-01-27T19:15:59.585Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/organizations",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-organizations__sidebar-services.png",
+      "duration": 944,
+      "timestamp": "2026-01-27T19:16:01.467Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/organizations",
+      "interactionId": "org-menu-first",
+      "description": "Click first organization's action menu",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-organizations__org-menu-first.png",
+      "duration": 950,
+      "timestamp": "2026-01-27T19:16:02.837Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/post-templates",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-post-templates__sidebar-services.png",
+      "duration": 913,
+      "timestamp": "2026-01-27T19:16:06.968Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/prs-report",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-prs-report__sidebar-services.png",
+      "duration": 912,
+      "timestamp": "2026-01-27T19:16:10.537Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/salesforce/connection",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-salesforce-connection__sidebar-services.png",
+      "duration": 921,
+      "timestamp": "2026-01-27T19:16:14.185Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/saml",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-saml__sidebar-services.png",
+      "duration": 918,
+      "timestamp": "2026-01-27T19:16:17.777Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/scheduler",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-scheduler__sidebar-services.png",
+      "duration": 923,
+      "timestamp": "2026-01-27T19:16:21.376Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/screenshots",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-screenshots__sidebar-services.png",
+      "duration": 904,
+      "timestamp": "2026-01-27T19:16:24.945Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/skills",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-skills__sidebar-services.png",
+      "duration": 902,
+      "timestamp": "2026-01-27T19:16:28.517Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/testimonials",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-testimonials__sidebar-services.png",
+      "duration": 933,
+      "timestamp": "2026-01-27T19:16:32.133Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/testimonials",
+      "interactionId": "testimonial-hover",
+      "description": "Hover on testimonial card to highlight actions",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-testimonials__testimonial-hover.png",
+      "duration": 825,
+      "timestamp": "2026-01-27T19:16:33.379Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/types",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-types__sidebar-services.png",
+      "duration": 937,
+      "timestamp": "2026-01-27T19:16:37.065Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/types",
+      "interactionId": "add-type-button",
+      "description": "Click ADD button on Post Types page",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-types__add-type-button.png",
+      "duration": 1060,
+      "timestamp": "2026-01-27T19:16:38.546Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/uptime",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-uptime__sidebar-services.png",
+      "duration": 928,
+      "timestamp": "2026-01-27T19:16:45.203Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/users",
+      "interactionId": "row-menu-first",
+      "description": "Click first row's 3-dot menu button to reveal actions",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-users__row-menu-first.png",
+      "duration": 921,
+      "timestamp": "2026-01-27T19:16:48.923Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/users",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-users__sidebar-services.png",
+      "duration": 937,
+      "timestamp": "2026-01-27T19:16:50.795Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/users",
+      "interactionId": "add-user-button",
+      "description": "Click ADD button to open user creation dialog",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-users__add-user-button.png",
+      "duration": 1081,
+      "timestamp": "2026-01-27T19:16:52.305Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/users/provisioning",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-users-provisioning__sidebar-services.png",
+      "duration": 970,
+      "timestamp": "2026-01-27T19:16:56.492Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/users/provisioning",
+      "interactionId": "add-provisioning-button",
+      "description": "Click Add New Provisioning button",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-users-provisioning__add-provisioning-button.png",
+      "duration": 1066,
+      "timestamp": "2026-01-27T19:16:57.985Z"
+    },
+    {
+      "environment": "dev",
+      "pagePath": "/admin/users/roles",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/dev/admin-users-roles__sidebar-services.png",
+      "duration": 900,
+      "timestamp": "2026-01-27T19:17:04.549Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/call-activity",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-call-activity__sidebar-services.png",
+      "duration": 903,
+      "timestamp": "2026-01-27T19:20:19.329Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/channels",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-channels__sidebar-services.png",
+      "duration": 924,
+      "timestamp": "2026-01-27T19:20:22.875Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/dashboard",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-dashboard__sidebar-services.png",
+      "duration": 909,
+      "timestamp": "2026-01-27T19:20:27.238Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/jobs",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-jobs__sidebar-services.png",
+      "duration": 901,
+      "timestamp": "2026-01-27T19:20:30.892Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/mobile-config",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-mobile-config__sidebar-services.png",
+      "duration": 911,
+      "timestamp": "2026-01-27T19:20:35.292Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/needs",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-needs__sidebar-services.png",
+      "duration": 939,
+      "timestamp": "2026-01-27T19:20:38.989Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/needs",
+      "interactionId": "lang-selector",
+      "description": "Click language selector to show language options",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-needs__lang-selector.png",
+      "duration": 924,
+      "timestamp": "2026-01-27T19:20:40.327Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/needs",
+      "interactionId": "need-category-select",
+      "description": "Click on first need category to show subcategories",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-needs__need-category-select.png",
+      "duration": 921,
+      "timestamp": "2026-01-27T19:20:42.189Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/notifications",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-notifications__sidebar-services.png",
+      "duration": 913,
+      "timestamp": "2026-01-27T19:20:46.524Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/organizations",
+      "interactionId": "row-menu-first",
+      "description": "Click first row's 3-dot menu button to reveal actions",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-organizations__row-menu-first.png",
+      "duration": 918,
+      "timestamp": "2026-01-27T19:20:50.756Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/organizations",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-organizations__sidebar-services.png",
+      "duration": 924,
+      "timestamp": "2026-01-27T19:20:52.631Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/organizations",
+      "interactionId": "org-menu-first",
+      "description": "Click first organization's action menu",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-organizations__org-menu-first.png",
+      "duration": 3947,
+      "timestamp": "2026-01-27T19:20:56.999Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/post-templates",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-post-templates__sidebar-services.png",
+      "duration": 933,
+      "timestamp": "2026-01-27T19:21:01.829Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/prs-report",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-prs-report__sidebar-services.png",
+      "duration": 903,
+      "timestamp": "2026-01-27T19:21:06.086Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/salesforce/connection",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-salesforce-connection__sidebar-services.png",
+      "duration": 917,
+      "timestamp": "2026-01-27T19:21:10.472Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/saml",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-saml__sidebar-services.png",
+      "duration": 954,
+      "timestamp": "2026-01-27T19:21:14.721Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/scheduler",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-scheduler__sidebar-services.png",
+      "duration": 932,
+      "timestamp": "2026-01-27T19:21:18.474Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/screenshots",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-screenshots__sidebar-services.png",
+      "duration": 905,
+      "timestamp": "2026-01-27T19:21:23.236Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/skills",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-skills__sidebar-services.png",
+      "duration": 912,
+      "timestamp": "2026-01-27T19:21:26.920Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/testimonials",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-testimonials__sidebar-services.png",
+      "duration": 911,
+      "timestamp": "2026-01-27T19:21:31.525Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/testimonials",
+      "interactionId": "testimonial-hover",
+      "description": "Hover on testimonial card to highlight actions",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-testimonials__testimonial-hover.png",
+      "duration": 824,
+      "timestamp": "2026-01-27T19:21:32.773Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/types",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-types__sidebar-services.png",
+      "duration": 1034,
+      "timestamp": "2026-01-27T19:21:37.466Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/types",
+      "interactionId": "add-type-button",
+      "description": "Click ADD button on Post Types page",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-types__add-type-button.png",
+      "duration": 1067,
+      "timestamp": "2026-01-27T19:21:38.948Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/uptime",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-uptime__sidebar-services.png",
+      "duration": 921,
+      "timestamp": "2026-01-27T19:21:46.323Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/users",
+      "interactionId": "row-menu-first",
+      "description": "Click first row's 3-dot menu button to reveal actions",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-users__row-menu-first.png",
+      "duration": 919,
+      "timestamp": "2026-01-27T19:21:49.937Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/users",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-users__sidebar-services.png",
+      "duration": 933,
+      "timestamp": "2026-01-27T19:21:51.812Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/users",
+      "interactionId": "add-user-button",
+      "description": "Click ADD button to open user creation dialog",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-users__add-user-button.png",
+      "duration": 1088,
+      "timestamp": "2026-01-27T19:21:53.324Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/users/provisioning",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-users-provisioning__sidebar-services.png",
+      "duration": 944,
+      "timestamp": "2026-01-27T19:21:58.194Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/users/provisioning",
+      "interactionId": "add-provisioning-button",
+      "description": "Click Add New Provisioning button",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-users-provisioning__add-provisioning-button.png",
+      "duration": 1029,
+      "timestamp": "2026-01-27T19:21:59.645Z"
+    },
+    {
+      "environment": "local",
+      "pagePath": "/admin/users/roles",
+      "interactionId": "sidebar-services",
+      "description": "Expand SERVICES section in sidebar to show sub-items",
+      "status": "success",
+      "screenshotPath": "screenshots/local/admin-users-roles__sidebar-services.png",
+      "duration": 902,
+      "timestamp": "2026-01-27T19:22:06.976Z"
+    }
+  ]
+}

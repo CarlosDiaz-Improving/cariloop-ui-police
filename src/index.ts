@@ -11,13 +11,19 @@ import {
   printProgressSummary,
   type ProgressManifest,
 } from "./progress";
+import {
+  loadLog,
+  createFreshLog,
+  printLogSummary,
+  type InteractionLog,
+} from "./logger";
 
-type RunMode = "fresh" | "resume" | "compare-only";
+type RunMode = "fresh" | "resume" | "compare-only" | "retry-failed";
 
 function discoverPagesFromDisk(): string[] {
   const devDir = path.join(screenshotsDir, "dev");
   if (!fs.existsSync(devDir)) return [];
-  const files = fs.readdirSync(devDir).filter((f) => f.endsWith(".png"));
+  const files = fs.readdirSync(devDir).filter((f) => f.endsWith(".png") && !f.includes("__"));
   return files.map((f) => "/" + f.replace(".png", "").replace(/-/g, "/"));
 }
 
@@ -29,7 +35,12 @@ function deleteAllScreenshots(): void {
     }
   }
   deleteProgress();
-  console.log("Cleared all screenshots and progress.\n");
+  // Also delete log files
+  const logFile = path.join(screenshotsDir, "interaction-log.json");
+  const reportFile = path.join(screenshotsDir, "failure-report.md");
+  if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
+  if (fs.existsSync(reportFile)) fs.unlinkSync(reportFile);
+  console.log("Cleared all screenshots, progress, and logs.\n");
 }
 
 function promptUser(question: string): string {
@@ -37,20 +48,29 @@ function promptUser(question: string): string {
   return answer?.trim() ?? "";
 }
 
-function determineRunMode(existing: ProgressManifest | null): RunMode {
+function determineRunMode(existing: ProgressManifest | null, existingLog: InteractionLog | null): RunMode {
   if (!existing) {
     console.log("No previous progress found. Starting fresh capture.\n");
     return "fresh";
   }
 
   printProgressSummary(existing);
+  
+  // Show log summary if exists
+  if (existingLog && existingLog.summary.total > 0) {
+    printLogSummary(existingLog);
+  }
 
   if (allEnvironmentsComplete(existing)) {
     console.log("All environments were fully captured in a previous run.");
     console.log("  [1] Compare only (skip capture)");
     console.log("  [2] Restart fresh (delete all and recapture)");
+    if (existingLog && existingLog.summary.failed > 0) {
+      console.log("  [3] Retry failed interactions only");
+    }
     const choice = promptUser("\nYour choice [1]: ");
     if (choice === "2") return "fresh";
+    if (choice === "3" && existingLog?.summary.failed) return "retry-failed";
     return "compare-only";
   }
 
@@ -59,29 +79,40 @@ function determineRunMode(existing: ProgressManifest | null): RunMode {
   console.log("  [1] Resume (continue where it left off)");
   console.log("  [2] Restart fresh (delete all and recapture)");
   console.log("  [3] Compare only (use whatever screenshots exist)");
+  if (existingLog && existingLog.summary.failed > 0) {
+    console.log("  [4] Retry failed interactions only");
+  }
   const choice = promptUser("\nYour choice [1]: ");
   if (choice === "2") return "fresh";
   if (choice === "3") return "compare-only";
+  if (choice === "4" && existingLog?.summary.failed) return "retry-failed";
   return "resume";
 }
 
-async function runFresh(): Promise<string[]> {
+async function runFresh(): Promise<{ pages: string[]; log: InteractionLog }> {
   deleteAllScreenshots();
   console.log("Step 1: Capturing screenshots...");
-  const { pages } = await captureAll();
-  return pages;
+  const { pages, log } = await captureAll();
+  return { pages, log };
 }
 
-async function runResume(manifest: ProgressManifest): Promise<string[]> {
+async function runResume(manifest: ProgressManifest, log: InteractionLog | null): Promise<{ pages: string[]; log: InteractionLog }> {
   console.log("Step 1: Resuming screenshot capture...");
-  const { pages } = await captureAll(manifest);
-  return pages;
+  const result = await captureAll(manifest, log ?? undefined);
+  return { pages: result.pages, log: result.log };
 }
 
-function runCompareOnly(manifest: ProgressManifest | null): string[] {
+async function runRetryFailed(manifest: ProgressManifest, existingLog: InteractionLog): Promise<{ pages: string[]; log: InteractionLog }> {
+  console.log("Step 1: Retrying failed interactions...");
+  // Use existing log to skip already successful ones
+  const result = await captureAll(manifest, existingLog);
+  return { pages: result.pages, log: result.log };
+}
+
+function runCompareOnly(manifest: ProgressManifest | null): { pages: string[]; log: InteractionLog | null } {
   console.log("Step 1: Skipping capture (compare-only mode).");
   if (manifest && manifest.discoveredPages.length > 0) {
-    return manifest.discoveredPages;
+    return { pages: manifest.discoveredPages, log: null };
   }
   // Fallback: discover pages from files on disk
   const pages = discoverPagesFromDisk();
@@ -90,26 +121,39 @@ function runCompareOnly(manifest: ProgressManifest | null): string[] {
     process.exit(1);
   }
   console.log(`  Found ${pages.length} pages from existing screenshots.`);
-  return pages;
+  return { pages, log: null };
 }
 
 async function main() {
   console.log("=== Cariloop UI Police ===\n");
 
   const existing = loadProgress();
-  const mode = determineRunMode(existing);
+  const existingLog = loadLog();
+  const mode = determineRunMode(existing, existingLog.summary.total > 0 ? existingLog : null);
 
   let pages: string[];
+  let log: InteractionLog | null = null;
 
   switch (mode) {
     case "fresh":
-      pages = await runFresh();
+      const freshResult = await runFresh();
+      pages = freshResult.pages;
+      log = freshResult.log;
       break;
     case "resume":
-      pages = await runResume(existing!);
+      const resumeResult = await runResume(existing!, existingLog.summary.total > 0 ? existingLog : null);
+      pages = resumeResult.pages;
+      log = resumeResult.log;
+      break;
+    case "retry-failed":
+      const retryResult = await runRetryFailed(existing!, existingLog);
+      pages = retryResult.pages;
+      log = retryResult.log;
       break;
     case "compare-only":
-      pages = runCompareOnly(existing);
+      const compareResult = runCompareOnly(existing);
+      pages = compareResult.pages;
+      log = compareResult.log;
       break;
   }
 
@@ -130,6 +174,14 @@ async function main() {
       ? results.reduce((sum, r) => sum + r.diffPercentage, 0) / results.length
       : 0;
   console.log(`Average difference: ${avgDiff.toFixed(2)}%`);
+  
+  // Show interaction summary
+  if (log) {
+    console.log(`\nInteractions: ✅ ${log.summary.success} success, ❌ ${log.summary.failed} failed`);
+    if (log.summary.failed > 0) {
+      console.log(`See: screenshots/failure-report.md for details`);
+    }
+  }
 }
 
 main().catch(console.error);

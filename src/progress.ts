@@ -6,6 +6,8 @@ const PROGRESS_FILE = path.join(screenshotsDir, "progress.json");
 
 export interface EnvironmentProgress {
   capturedPages: string[];
+  /** Map of pagePath -> array of captured interaction IDs */
+  capturedInteractions: Record<string, string[]>;
   complete: boolean;
   lastUpdated: string;
 }
@@ -44,6 +46,7 @@ export function createFreshManifest(): ProgressManifest {
   for (const env of environments) {
     envs[env.name] = {
       capturedPages: [],
+      capturedInteractions: {},
       complete: false,
       lastUpdated: new Date().toISOString(),
     };
@@ -93,6 +96,52 @@ export function isPageCaptured(
   return existsSync(filepath);
 }
 
+function interactionFilename(pagePath: string, interactionId: string): string {
+  const base = pagePath.replace(/^\//, "").replace(/\//g, "-");
+  return `${base}__${interactionId}.png`;
+}
+
+export function isInteractionCaptured(
+  manifest: ProgressManifest,
+  envName: string,
+  pagePath: string,
+  interactionId: string
+): boolean {
+  const env = manifest.environments[envName];
+  if (!env) return false;
+  // Initialize capturedInteractions if not present (for backwards compatibility)
+  if (!env.capturedInteractions) {
+    env.capturedInteractions = {};
+  }
+  const interactions = env.capturedInteractions[pagePath] ?? [];
+  if (!interactions.includes(interactionId)) return false;
+  // Verify file exists on disk
+  const filepath = path.join(screenshotsDir, envName, interactionFilename(pagePath, interactionId));
+  return existsSync(filepath);
+}
+
+export function markInteractionCaptured(
+  manifest: ProgressManifest,
+  envName: string,
+  pagePath: string,
+  interactionId: string
+): void {
+  const env = manifest.environments[envName];
+  if (!env) return;
+  // Initialize capturedInteractions if not present
+  if (!env.capturedInteractions) {
+    env.capturedInteractions = {};
+  }
+  if (!env.capturedInteractions[pagePath]) {
+    env.capturedInteractions[pagePath] = [];
+  }
+  if (!env.capturedInteractions[pagePath].includes(interactionId)) {
+    env.capturedInteractions[pagePath].push(interactionId);
+  }
+  env.lastUpdated = new Date().toISOString();
+  saveProgress(manifest);
+}
+
 export function isEnvironmentComplete(
   manifest: ProgressManifest,
   envName: string
@@ -117,7 +166,10 @@ export function printProgressSummary(manifest: ProgressManifest): void {
       continue;
     }
     const status = ep.complete ? "COMPLETE" : "in progress";
-    console.log(`  ${env.name}: ${ep.capturedPages.length} pages captured (${status})`);
+    const interactionCount = ep.capturedInteractions
+      ? Object.values(ep.capturedInteractions).reduce((sum, arr) => sum + arr.length, 0)
+      : 0;
+    console.log(`  ${env.name}: ${ep.capturedPages.length} pages, ${interactionCount} interactions (${status})`);
   }
   console.log("------------------------\n");
 }

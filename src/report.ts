@@ -15,43 +15,105 @@ function getBadgeClass(pct: number): string {
   return "badge-red";
 }
 
+interface GroupedResult {
+  pagePath: string;
+  base?: ComparisonResult;
+  interactions: ComparisonResult[];
+}
+
+function groupResults(results: ComparisonResult[]): GroupedResult[] {
+  const grouped = new Map<string, GroupedResult>();
+  
+  for (const r of results) {
+    if (!grouped.has(r.pagePath)) {
+      grouped.set(r.pagePath, { pagePath: r.pagePath, interactions: [] });
+    }
+    const group = grouped.get(r.pagePath)!;
+    
+    if (r.interactionId) {
+      group.interactions.push(r);
+    } else {
+      group.base = r;
+    }
+  }
+  
+  // Sort by pagePath
+  return Array.from(grouped.values()).sort((a, b) => 
+    a.pagePath.localeCompare(b.pagePath)
+  );
+}
+
+function renderCard(r: ComparisonResult, title: string, isInteraction: boolean = false): string {
+  const devB64 = imageToBase64(r.devScreenshot);
+  const localB64 = imageToBase64(r.localScreenshot);
+  const diffB64 = imageToBase64(r.diffScreenshot);
+  const badgeClass = getBadgeClass(r.diffPercentage);
+  const cardClass = isInteraction ? "card interaction-card" : "card";
+  const headerClass = isInteraction ? "card-header interaction-header" : "card-header";
+
+  return `
+    <div class="${cardClass}">
+      <div class="${headerClass}">
+        <h2>${title}</h2>
+        <span class="badge ${badgeClass}">${r.diffPercentage.toFixed(2)}% diff</span>
+      </div>
+      <div class="card-images">
+        <div class="image-col">
+          <h3>Dev</h3>
+          <img src="${devB64}" alt="Dev screenshot" loading="lazy" />
+        </div>
+        <div class="image-col">
+          <h3>Local</h3>
+          <img src="${localB64}" alt="Local screenshot" loading="lazy" />
+        </div>
+        <div class="image-col">
+          <h3>Diff</h3>
+          <img src="${diffB64}" alt="Diff" loading="lazy" />
+        </div>
+      </div>
+    </div>`;
+}
+
 export function generateReport(results: ComparisonResult[]): string {
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
 
-  const totalPages = results.length;
+  const grouped = groupResults(results);
+  const baseResults = results.filter(r => !r.interactionId);
+  const interactionResults = results.filter(r => r.interactionId);
+  
+  const totalPages = baseResults.length;
+  const totalInteractions = interactionResults.length;
   const avgDiff =
-    totalPages > 0
-      ? results.reduce((sum, r) => sum + r.diffPercentage, 0) / totalPages
+    results.length > 0
+      ? results.reduce((sum, r) => sum + r.diffPercentage, 0) / results.length
       : 0;
 
-  const cards = results
-    .map((r) => {
-      const devB64 = imageToBase64(r.devScreenshot);
-      const localB64 = imageToBase64(r.localScreenshot);
-      const diffB64 = imageToBase64(r.diffScreenshot);
-      const badgeClass = getBadgeClass(r.diffPercentage);
-
-      return `
-      <div class="card">
-        <div class="card-header">
-          <h2>${r.pagePath}</h2>
-          <span class="badge ${badgeClass}">${r.diffPercentage.toFixed(2)}% diff</span>
-        </div>
-        <div class="card-images">
-          <div class="image-col">
-            <h3>Dev</h3>
-            <img src="${devB64}" alt="Dev screenshot" />
-          </div>
-          <div class="image-col">
-            <h3>Local</h3>
-            <img src="${localB64}" alt="Local screenshot" />
-          </div>
-          <div class="image-col">
-            <h3>Diff</h3>
-            <img src="${diffB64}" alt="Diff" />
-          </div>
-        </div>
-      </div>`;
+  const cards = grouped
+    .map((group) => {
+      let html = "";
+      
+      // Base page card
+      if (group.base) {
+        html += renderCard(group.base, group.pagePath, false);
+      }
+      
+      // Interaction cards (nested)
+      if (group.interactions.length > 0) {
+        html += `<div class="interactions-group">
+          <div class="interactions-header">
+            <span class="interactions-icon">⚡</span>
+            ${group.interactions.length} Interaction${group.interactions.length > 1 ? 's' : ''} Captured
+          </div>`;
+        
+        for (const interaction of group.interactions) {
+          const title = `${interaction.interactionId}`;
+          html += renderCard(interaction, title, true);
+        }
+        
+        html += `</div>`;
+      }
+      
+      return html;
     })
     .join("\n");
 
@@ -81,6 +143,7 @@ export function generateReport(results: ComparisonResult[]): string {
       display: flex;
       gap: 30px;
       margin-top: 15px;
+      flex-wrap: wrap;
     }
     .header .stat {
       background: rgba(255,255,255,0.1);
@@ -130,6 +193,46 @@ export function generateReport(results: ComparisonResult[]): string {
       border: 1px solid #ddd;
       border-radius: 6px;
     }
+    
+    /* Interaction styles */
+    .interactions-group {
+      margin-left: 40px;
+      margin-bottom: 24px;
+      border-left: 3px solid #667eea;
+      padding-left: 20px;
+    }
+    .interactions-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .interactions-icon {
+      margin-right: 8px;
+    }
+    .interaction-card {
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+    }
+    .interaction-header {
+      background: #f5f5f5;
+    }
+    .interaction-header h2 {
+      font-size: 15px;
+      color: #555;
+    }
+    .interaction-header h2::before {
+      content: "↳ ";
+      color: #667eea;
+    }
+    
+    /* Stats for interactions */
+    .stat-interactions {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
   </style>
 </head>
 <body>
@@ -140,6 +243,10 @@ export function generateReport(results: ComparisonResult[]): string {
       <div class="stat">
         <div class="stat-value">${totalPages}</div>
         <div class="stat-label">Pages Compared</div>
+      </div>
+      <div class="stat stat-interactions">
+        <div class="stat-value">${totalInteractions}</div>
+        <div class="stat-label">Interactions Captured</div>
       </div>
       <div class="stat">
         <div class="stat-value">${avgDiff.toFixed(2)}%</div>

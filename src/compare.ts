@@ -13,6 +13,10 @@ export interface ComparisonResult {
   devScreenshot: string;
   localScreenshot: string;
   diffScreenshot: string;
+  /** If this is an interaction, the interaction ID */
+  interactionId?: string;
+  /** Human-readable description for interactions */
+  description?: string;
 }
 
 function readPng(filepath: string): PNG {
@@ -49,18 +53,55 @@ export function compareScreenshots(pages: string[]): ComparisonResult[] {
 
   const results: ComparisonResult[] = [];
 
+  // Get all screenshot files from dev directory (includes interactions)
+  const allDevFiles = fs.existsSync(devDir)
+    ? fs.readdirSync(devDir).filter((f) => f.endsWith(".png"))
+    : [];
+
+  // Build set of files to compare
+  const filesToCompare = new Set<string>();
+  
+  // Add base page screenshots
   for (const pagePath of pages) {
     const filename = pagePath.replace(/^\//, "").replace(/\//g, "-") + ".png";
+    filesToCompare.add(filename);
+  }
+  
+  // Add all interaction screenshots (files with __ in the name)
+  for (const file of allDevFiles) {
+    if (file.includes("__")) {
+      filesToCompare.add(file);
+    }
+  }
+
+  for (const filename of filesToCompare) {
     const devPath = path.join(devDir, filename);
     const localPath = path.join(localDir, filename);
     const diffPath = path.join(diffDir, filename);
 
     if (!fs.existsSync(devPath) || !fs.existsSync(localPath)) {
-      console.log(`  Skipping ${pagePath}: missing screenshot(s)`);
+      // Only log for base pages, not for interactions that might not exist
+      if (!filename.includes("__")) {
+        console.log(`  Skipping ${filename}: missing screenshot(s)`);
+      }
       continue;
     }
 
-    console.log(`  Comparing ${pagePath}...`);
+    // Parse pagePath and interactionId from filename
+    let pagePath: string;
+    let interactionId: string | undefined;
+    
+    if (filename.includes("__")) {
+      const parts = filename.replace(".png", "").split("__");
+      const basePart = parts[0] ?? "";
+      const interactionPart = parts[1];
+      pagePath = "/" + basePart.replace(/-/g, "/");
+      interactionId = interactionPart;
+      console.log(`  Comparing ${pagePath} [${interactionId}]...`);
+    } else {
+      pagePath = "/" + filename.replace(".png", "").replace(/-/g, "/");
+      console.log(`  Comparing ${pagePath}...`);
+    }
 
     let devImg = readPng(devPath);
     let localImg = readPng(localPath);
@@ -98,6 +139,8 @@ export function compareScreenshots(pages: string[]): ComparisonResult[] {
       devScreenshot: devPath,
       localScreenshot: localPath,
       diffScreenshot: diffPath,
+      interactionId,
+      description: interactionId ? `Interaction: ${interactionId}` : undefined,
     });
 
     console.log(`    Diff: ${diffPercentage.toFixed(2)}% (${diffPixels}/${totalPixels} pixels)`);
