@@ -1,11 +1,12 @@
 import type { Page } from "playwright";
 import { getCurrentAppConfig, getFallbackPages } from "./config";
+import { log, style } from "../utils/terminal";
 
 export async function discoverPages(page: Page): Promise<string[]> {
   const appConfig = getCurrentAppConfig();
   const pathPrefix = appConfig.pathPrefix;
   
-  console.log(`  Scanning sidebar/nav for ${appConfig.displayName} links...`);
+  log.action(`Scanning sidebar/nav for ${style.highlight(appConfig.displayName)} links...`);
 
   const links = await page.evaluate((prefix: string) => {
     const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"));
@@ -33,14 +34,16 @@ export async function discoverPages(page: Page): Promise<string[]> {
   const unique = [...new Set(links)].sort();
 
   if (unique.length === 0) {
-    console.log(`  No ${appConfig.displayName} links found, using fallback list`);
-    return getFallbackPages();
+    log.warning(`No links found, using fallback list`);
+    const fallback = getFallbackPages();
+    log.tree(fallback);
+    console.log("");
+    return fallback;
   }
 
-  console.log(`  Discovered ${unique.length} pages:`);
-  unique.forEach((p) => console.log(`    - ${p}`));
+  log.success(`Discovered ${unique.length} pages`);
+  log.tree(unique);
+  console.log("");
+  
   return unique;
 }
-
-// Legacy export for backward compatibility
-export const discoverAdminPages = discoverPages;

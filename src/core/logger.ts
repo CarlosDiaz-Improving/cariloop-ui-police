@@ -130,7 +130,7 @@ export function getFailedByPage(log: InteractionLog): Map<string, InteractionLog
 }
 
 /**
- * Check if a specific interaction already succeeded (to skip on retry)
+ * Check if an interaction has already succeeded in the log
  */
 export function hasSucceeded(
   log: InteractionLog,
@@ -148,71 +148,31 @@ export function hasSucceeded(
 }
 
 /**
- * Check if a specific interaction previously failed
- */
-export function hasFailed(
-  log: InteractionLog,
-  environment: string,
-  pagePath: string,
-  interactionId: string
-): boolean {
-  return log.entries.some(
-    (e) =>
-      e.environment === environment &&
-      e.pagePath === pagePath &&
-      e.interactionId === interactionId &&
-      e.status === "failed"
-  );
-}
-
-/**
- * Clear failed entries for retry
- */
-export function clearFailedEntries(log: InteractionLog): void {
-  log.entries = log.entries.filter((e) => e.status !== "failed");
-  log.summary.failed = 0;
-  log.summary.total = log.entries.length;
-  saveLog(log);
-}
-
-/**
- * Print a summary of the log to console
+ * Print log summary to console
  */
 export function printLogSummary(log: InteractionLog): void {
-  console.log("\n--- Interaction Log Summary ---");
-  console.log(`Started: ${log.startedAt}`);
-  console.log(`Last Updated: ${log.lastUpdated}`);
+  console.log("\n--- Interaction Log ---");
   console.log(`Total: ${log.summary.total}`);
   console.log(`  ✅ Success: ${log.summary.success}`);
   console.log(`  ❌ Failed: ${log.summary.failed}`);
   console.log(`  ⏭️  Skipped: ${log.summary.skipped}`);
-  
-  if (log.summary.failed > 0) {
-    console.log("\n--- Failed Interactions ---");
-    const failed = getFailedInteractions(log);
-    for (const entry of failed) {
-      console.log(`  [${entry.environment}] ${entry.pagePath}`);
-      console.log(`    → ${entry.interactionId}: ${entry.description}`);
-      console.log(`    Error: ${entry.error?.substring(0, 100)}...`);
-    }
-  }
-  console.log("-------------------------------\n");
+  console.log("------------------------\n");
 }
 
 /**
- * Generate a markdown report of failures
+ * Generate failure report markdown
  */
-export function generateFailureReport(log: InteractionLog): string {
+function generateFailureReport(log: InteractionLog): string {
   const failed = getFailedInteractions(log);
   
   if (failed.length === 0) {
-    return "# Interaction Log\n\nAll interactions completed successfully! 🎉\n";
+    return "# Interaction Report\n\nNo failures recorded. ✅\n";
   }
   
-  let md = "# Interaction Failures Report\n\n";
+  let md = `# Interaction Failure Report\n\n`;
   md += `Generated: ${new Date().toISOString()}\n\n`;
   md += `## Summary\n\n`;
-  md += `- Total Interactions: ${log.summary.total}\n`;
+  md += `- Total interactions: ${log.summary.total}\n`;
   md += `- ✅ Success: ${log.summary.success}\n`;
   md += `- ❌ Failed: ${log.summary.failed}\n`;
   md += `- ⏭️ Skipped: ${log.summary.skipped}\n\n`;
@@ -220,14 +180,21 @@ export function generateFailureReport(log: InteractionLog): string {
   md += `## Failed Interactions\n\n`;
   
   const byPage = getFailedByPage(log);
+  
   for (const [key, entries] of byPage) {
-    md += `### ${key}\n\n`;
+    const [env, pagePath] = key.split(":");
+    md += `### ${env}: ${pagePath}\n\n`;
+    
     for (const entry of entries) {
-      md += `#### ${entry.interactionId}\n\n`;
-      md += `- **Description:** ${entry.description}\n`;
-      md += `- **Time:** ${entry.timestamp}\n`;
-      md += `- **Error:**\n\`\`\`\n${entry.error}\n\`\`\`\n\n`;
+      md += `- **${entry.interactionId}**: ${entry.description}\n`;
+      if (entry.error) {
+        md += `  - Error: \`${entry.error.substring(0, 200)}\`\n`;
+      }
+      if (entry.duration) {
+        md += `  - Duration: ${entry.duration}ms\n`;
+      }
     }
+    md += "\n";
   }
   
   return md;

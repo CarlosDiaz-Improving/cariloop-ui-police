@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import path from "path";
 import { getScreenshotsDir, environments } from "./config";
+import { pathToFilename, interactionFilename } from "../utils/paths";
 
 function getProgressFile(): string {
   return path.join(getScreenshotsDir(), "progress.json");
@@ -84,10 +85,6 @@ export function markEnvironmentComplete(
   saveProgress(manifest);
 }
 
-function pathToFilename(pagePath: string): string {
-  return pagePath.replace(/^\//, "").replace(/\//g, "-") + ".png";
-}
-
 export function isPageCaptured(
   manifest: ProgressManifest,
   envName: string,
@@ -99,11 +96,6 @@ export function isPageCaptured(
   // Also verify the file actually exists on disk
   const filepath = path.join(getScreenshotsDir(), envName, pathToFilename(pagePath));
   return existsSync(filepath);
-}
-
-function interactionFilename(pagePath: string, interactionId: string): string {
-  const base = pagePath.replace(/^\//, "").replace(/\//g, "-");
-  return `${base}__${interactionId}.png`;
 }
 
 export function isInteractionCaptured(

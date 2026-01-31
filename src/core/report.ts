@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import type { ComparisonResult } from "./compare";
 import { getReportsDir, getCurrentAppConfig } from "./config";
+import { log, style } from "../utils/terminal";
 
 function imageToBase64(filepath: string): string {
   if (!fs.existsSync(filepath)) return "";
@@ -78,6 +79,8 @@ export function generateReport(results: ComparisonResult[]): string {
   const reportsDir = getReportsDir();
   const appConfig = getCurrentAppConfig();
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
+
+  log.header("Generating Report");
 
   const grouped = groupResults(results);
   const baseResults = results.filter(r => !r.interactionId);
@@ -262,20 +265,27 @@ export function generateReport(results: ComparisonResult[]): string {
 
   const outputPath = path.join(reportsDir, "index.html");
   fs.writeFileSync(outputPath, html, "utf-8");
-  console.log(`Report generated: ${outputPath}`);
+  
+  log.fileSaved(outputPath, "Report");
+  console.log(`  ${style.muted(`Pages: ${totalPages} | Interactions: ${totalInteractions} | Avg Diff: ${avgDiff.toFixed(2)}%`)}\n`);
+  
   return outputPath;
 }
 
 // Allow running standalone
 if (import.meta.main) {
   const { compareScreenshots } = await import("./compare");
-  const screenshotsDevDir = path.join("screenshots", "dev");
+  const { getScreenshotsDir } = await import("./config");
+  
+  const screenshotsDevDir = path.join(getScreenshotsDir(), "dev");
   if (!fs.existsSync(screenshotsDevDir)) {
-    console.error("No screenshots found. Run capture and compare first.");
+    log.error("No screenshots found. Run capture and compare first.");
     process.exit(1);
   }
   const files = fs.readdirSync(screenshotsDevDir).filter((f) => f.endsWith(".png"));
-  const pages = files.map((f) => "/" + f.replace(".png", "").replace(/-/g, "/"));
+  const pages = files
+    .filter((f) => !f.includes("__"))
+    .map((f) => "/" + f.replace(".png", "").replace(/-/g, "/"));
   const results = compareScreenshots(pages);
   generateReport(results);
 }

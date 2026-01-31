@@ -1,12 +1,13 @@
 import type { Page } from "playwright";
 import { getCredentials, getCurrentAppConfig, timeouts, retries, useSameCredentials } from "./config";
+import { log, style } from "../utils/terminal";
 
 async function attemptLogin(page: Page, baseUrl: string, envName: string): Promise<void> {
   const loginUrl = `${baseUrl}/login`;
   const appConfig = getCurrentAppConfig();
   const credentials = getCredentials(envName);
   
-  console.log(`  Navigating to ${loginUrl}`);
+  log.action(`Navigating to ${style.url(loginUrl)}`);
   await page.goto(loginUrl, {
     waitUntil: "domcontentloaded",
     timeout: timeouts.loginNavigation,
@@ -16,11 +17,11 @@ async function attemptLogin(page: Page, baseUrl: string, envName: string): Promi
     timeout: timeouts.loginFormReady,
   });
 
-  console.log("  Filling credentials...");
+  log.action("Filling credentials...");
   await page.fill('input[type="email"], input[name="email"]', credentials.email);
   await page.fill('input[type="password"], input[name="password"]', credentials.password);
 
-  console.log("  Submitting login form...");
+  log.action("Submitting login form...");
   await page.click('button[type="submit"]');
 
   // Wait for redirect after login (coach or admin)
@@ -31,13 +32,14 @@ async function attemptLogin(page: Page, baseUrl: string, envName: string): Promi
     page.waitForSelector(appConfig.readySelector, {
       timeout: timeouts.loginRedirect,
     }),
-  ]);
-  console.log("  Logged in, redirected from login");
+  ]);  log.success("Logged in successfully");
 
   // Navigate to app-specific landing page
-  const landingPage = appConfig.fallbackPages[0]; // First fallback is typically dashboard
+  const landingPage = appConfig.fallbackPages[0];
   if (landingPage && appConfig.pathPrefix) {
-    console.log(`  Navigating to ${landingPage}...`);
+    log.action(`Navigating to ${style.path(landingPage)}...`);
+    console.log("");
+    
     await page.goto(`${baseUrl}${landingPage}`, {
       waitUntil: "domcontentloaded",
       timeout: timeouts.loginNavigation,
@@ -49,9 +51,10 @@ async function attemptLogin(page: Page, baseUrl: string, envName: string): Promi
         timeout: timeouts.contentReady,
       });
     } catch {
-      console.warn(`  Warning: ${appConfig.displayName} may not have fully loaded`);
+      log.warning(`${appConfig.displayName} may not have fully loaded`);
     }
-    console.log(`  On ${appConfig.displayName} landing page`);
+    log.success(`On ${appConfig.displayName} landing page`);
+    console.log("");
   }
 }
 
@@ -62,14 +65,14 @@ export async function login(page: Page, baseUrl: string, envName: string = "dev"
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       if (attempt > 1) {
-        console.log(`  Login retry ${attempt}/${maxAttempts}...`);
+        log.warning(`Login retry ${attempt}/${maxAttempts}...`);
         await page.waitForTimeout(2000);
       }
       await attemptLogin(page, baseUrl, envName);
       return;
     } catch (err) {
       lastError = err;
-      console.error(`  Login attempt ${attempt}/${maxAttempts} failed: ${err}`);
+      log.error(`Login attempt ${attempt}/${maxAttempts} failed: ${err}`);
     }
   }
 
@@ -83,7 +86,7 @@ export async function login(page: Page, baseUrl: string, envName: string = "dev"
  * Needed when switching environments with same credentials
  */
 export async function logout(page: Page, baseUrl: string): Promise<void> {
-  console.log("  Logging out...");
+  log.action("Logging out...");
   
   // Try navigating to logout endpoint
   try {
@@ -100,7 +103,7 @@ export async function logout(page: Page, baseUrl: string): Promise<void> {
   
   // Wait a moment for logout to complete
   await page.waitForTimeout(1000);
-  console.log("  Logged out and cookies cleared");
+  log.success("Logged out and cookies cleared");
 }
 
 /**

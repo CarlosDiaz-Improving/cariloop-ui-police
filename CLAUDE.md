@@ -42,32 +42,63 @@ Default to Bun instead of Node.js for everything:
 
 ## Architecture
 
-Pipeline runs in three sequential steps, orchestrated by `src/index.ts`:
+**Folder Structure:**
 
 ```
-index.ts (orchestrator + app selection + interactive menu)
-  → config.ts (multi-app configuration: APPS, getScreenshotsDir, setCurrentApp)
-  → capture.ts (Playwright browser automation)
-      → auth.ts (login/logout with retry, env-specific credentials)
-      → discover.ts (scan DOM for app-specific nav links)
-      → interactions.ts (define & execute UI interactions)
-      → progress.ts (persist state to <app>-screenshots/progress.json)
-  → compare.ts (pixelmatch pixel-level diff)
-  → report.ts (self-contained HTML with base64-embedded images)
+src/
+  index.ts              # Main entry point, orchestrator
+  apps/                 # App-specific configurations
+    admin/
+      index.ts          # Admin app config
+      interactions.ts   # Admin-specific interactions
+    plan/
+    coach/
+    auth/
+    types.ts            # Shared types (Interaction, AppConfig)
+    index.ts            # App registry
+  core/                 # Shared core modules
+    config.ts           # Global config, viewport, credentials
+    auth.ts             # Login/logout logic
+    discover.ts         # Page discovery
+    capture.ts          # Screenshot capture
+    compare.ts          # Pixel comparison
+    report.ts           # HTML report generation
+    progress.ts         # Progress tracking
+    interactions.ts     # Interaction execution
+    logger.ts           # Interaction logging
+    index.ts            # Barrel export
+  utils/                # Utility functions
+    terminal.ts         # Colors, styled logging
+    env.ts              # Environment variable helpers
+    paths.ts            # Filename utilities
+    index.ts            # Barrel export
+```
+
+**Pipeline:** `index.ts` orchestrates three sequential steps:
+
+```
+index.ts (app selection → capture → compare → report)
+  → core/config.ts (multi-app config, viewport presets, credentials)
+  → core/capture.ts (Playwright browser automation)
+      → core/auth.ts (login/logout with retry)
+      → core/discover.ts (scan DOM for nav links)
+      → apps/<app>/interactions.ts (app-specific UI interactions)
+      → core/progress.ts (persist state)
+  → core/compare.ts (pixelmatch pixel-level diff)
+  → core/report.ts (self-contained HTML with base64-embedded images)
 ```
 
 **Key design decisions:**
-- **Multi-app architecture**: `config.ts` defines `APPS` record with each app's pathPrefix, readySelector, and fallbackPages. `setCurrentApp()` switches context; `getScreenshotsDir()` and `getReportsDir()` return app-specific paths.
-- **SPA navigation**: Uses `waitUntil: "domcontentloaded"` (not `networkidle`) because Cariloop SPAs have persistent connections. Content readiness uses app-specific `readySelector`.
-- **Progress manifest** (`<app>-screenshots/progress.json`): Saves after every captured page/interaction so interrupted runs can resume. Tracks both `capturedPages` and `capturedInteractions` per environment.
-- **Page discovery**: First environment discovers pages from navigation links; subsequent environments reuse the same page list from the manifest.
-- **Interaction system** (`interactions.ts`): Defines configurable interactions (click, hover) with CSS selectors and page filters.
-- **Credential handling**: Supports optional separate credentials for local environment via `LOCAL_CARILOOP_EMAIL`/`LOCAL_CARILOOP_PASSWORD`.
-- **Resilience**: Login has configurable retries. Per-environment failures are caught and logged without aborting the whole run.
+- **App-specific modules**: Each app has its own folder in `src/apps/` with interactions and config specific to that app.
+- **Shared core**: Common functionality lives in `src/core/` and is app-agnostic.
+- **Styled terminal output**: `utils/terminal.ts` provides consistent colored logging.
+- **SPA navigation**: Uses `waitUntil: "domcontentloaded"` (not `networkidle`) because Cariloop SPAs have persistent connections.
+- **Configurable viewport**: Preset resolutions or custom dimensions via env vars.
+- **Progress manifest**: Saves after every captured page/interaction so interrupted runs can resume.
 
 ## Adding New Interactions
 
-Edit `src/interactions.ts` to add new UI elements to capture:
+Edit `src/apps/<app>/interactions.ts` to add app-specific UI elements to capture:
 
 ```typescript
 {
@@ -84,12 +115,23 @@ Edit `src/interactions.ts` to add new UI elements to capture:
 
 ## Configuration
 
-All settings live in `src/config.ts`:
+All settings live in `src/core/config.ts`:
 - `APPS` record: Defines pathPrefix, readySelector, fallbackPages for each app
 - `environments`: URLs for dev and local environments
 - `getCredentials(envName)`: Returns credentials, supporting separate local env credentials
-- `viewport`: 1920x1080
+- `VIEWPORT_PRESETS`: desktop-hd (1920x1080), desktop (1440x900), laptop (1366x768), tablet (1024x768), mobile (375x812)
+- `getViewport()`: Returns viewport from env vars (VIEWPORT_PRESET or VIEWPORT_WIDTH/HEIGHT)
 - `timeouts`: Configurable via .env
+
+**Viewport Configuration:**
+```bash
+# Use a preset
+VIEWPORT_PRESET=laptop
+
+# Or custom dimensions
+VIEWPORT_WIDTH=1280
+VIEWPORT_HEIGHT=720
+```
 
 ## Generated Directories
 

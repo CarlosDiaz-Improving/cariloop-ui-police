@@ -3,13 +3,13 @@ import { existsSync, mkdirSync } from "fs";
 import path from "path";
 import {
   environments,
-  viewport,
+  getViewport,
   getScreenshotsDir,
   getCurrentAppConfig,
   timeouts,
   type EnvConfig,
 } from "./config";
-import { login, logout, needsLogoutBeforeSwitch } from "./auth";
+import { login } from "./auth";
 import { discoverPages } from "./discover";
 import type { ProgressManifest } from "./progress";
 import {
@@ -28,7 +28,6 @@ import {
   closeInteraction,
   shouldRunOnPage,
   closeAllOverlays,
-  type Interaction,
 } from "./interactions";
 import {
   type InteractionLog,
@@ -39,15 +38,8 @@ import {
   saveFailureReport,
   hasSucceeded,
 } from "./logger";
-
-function pathToFilename(pagePath: string): string {
-  return pagePath.replace(/^\//, "").replace(/\//g, "-") + ".png";
-}
-
-function interactionFilename(pagePath: string, interactionId: string): string {
-  const base = pagePath.replace(/^\//, "").replace(/\//g, "-");
-  return `${base}__${interactionId}.png`;
-}
+import { log, style, symbols } from "../utils/terminal";
+import { pathToFilename, interactionFilename } from "../utils/paths";
 
 /**
  * Capture interactions on the current page (menus, buttons, hover states)
@@ -59,7 +51,7 @@ async function captureInteractions(
   outputDir: string,
   manifest: ProgressManifest,
   envName: string,
-  log: InteractionLog
+  interactionLog: InteractionLog
 ): Promise<void> {
   const interactions = getAllInteractions();
   
@@ -75,7 +67,7 @@ async function captureInteractions(
     }
     
     // Check if already succeeded in log (for retry runs)
-    if (hasSucceeded(log, envName, pagePath, interaction.id)) {
+    if (hasSucceeded(interactionLog, envName, pagePath, interaction.id)) {
       continue;
     }
 
@@ -95,7 +87,7 @@ async function captureInteractions(
         });
         await page.waitForTimeout(timeouts.settleDelay);
       } catch {
-        logInteraction(log, {
+        logInteraction(interactionLog, {
           environment: envName,
           pagePath,
           interactionId: interaction.id,
@@ -108,7 +100,7 @@ async function captureInteractions(
       }
     }
 
-    console.log(`    → Interaction: ${interaction.description}...`);
+    log.interaction(interaction.description);
     
     const result = await executeInteraction(page, interaction, pagePath);
     
@@ -116,9 +108,9 @@ async function captureInteractions(
       try {
         await page.screenshot({ path: filepath, fullPage: true });
         markInteractionCaptured(manifest, envName, pagePath, interaction.id);
-        console.log(`      ✅ Saved: ${filename}`);
+        log.fileSaved(filename);
         
-        logInteraction(log, {
+        logInteraction(interactionLog, {
           environment: envName,
           pagePath,
           interactionId: interaction.id,
@@ -128,8 +120,8 @@ async function captureInteractions(
           duration: Date.now() - startTime,
         });
       } catch (err) {
-        console.error(`      ❌ Screenshot failed: ${err}`);
-        logInteraction(log, {
+        console.log(`      ${style.error(`${symbols.cross} Screenshot failed:`)} ${err}`);
+        logInteraction(interactionLog, {
           environment: envName,
           pagePath,
           interactionId: interaction.id,
@@ -147,8 +139,8 @@ async function captureInteractions(
       if (result.error?.includes("Element not found") || result.error?.includes("Element not visible")) {
         // Silent skip - element doesn't exist on this page
       } else {
-        console.log(`      ❌ Failed: ${result.error?.substring(0, 80)}...`);
-        logInteraction(log, {
+        console.log(`      ${style.error(`${symbols.cross} Failed:`)} ${result.error?.substring(0, 80)}...`);
+        logInteraction(interactionLog, {
           environment: envName,
           pagePath,
           interactionId: interaction.id,
@@ -172,7 +164,7 @@ async function capturePages(
   outputDir: string,
   manifest: ProgressManifest,
   envName: string,
-  log: InteractionLog,
+  interactionLog: InteractionLog,
   captureInteractionsEnabled: boolean = true
 ): Promise<void> {
   for (const pagePath of pages) {
@@ -184,7 +176,8 @@ async function capturePages(
       const filepath = path.join(outputDir, filename);
       const appConfig = getCurrentAppConfig();
 
-      console.log(`  Capturing ${pagePath}...`);
+      log.page(pagePath, pages.indexOf(pagePath) + 1, pages.length);
+      
       try {
         await page.goto(url, {
           waitUntil: "domcontentloaded",
@@ -201,13 +194,13 @@ async function capturePages(
         await page.waitForTimeout(timeouts.settleDelay);
         await page.screenshot({ path: filepath, fullPage: true });
         markPageCaptured(manifest, envName, pagePath);
-        console.log(`    Saved: ${filepath}`);
+        log.fileSaved(filename);
       } catch (err) {
-        console.error(`    Failed to capture ${pagePath}: ${err}`);
+        console.log(`    ${style.error(`${symbols.cross} Failed to capture:`)} ${err}`);
         continue; // Skip interactions if base page failed
       }
     } else {
-      console.log(`  Skipping ${pagePath} (already captured)`);
+      console.log(`  ${style.muted(`${symbols.arrow} Skipping ${pagePath} (already captured)`)}`);
       // Still need to navigate to page for interactions
       if (captureInteractionsEnabled) {
         try {
@@ -224,27 +217,32 @@ async function capturePages(
 
     // Capture interaction states (menus, buttons, etc.)
     if (captureInteractionsEnabled) {
-      await captureInteractions(page, pagePath, baseUrl, outputDir, manifest, envName, log);
+      await captureInteractions(page, pagePath, baseUrl, outputDir, manifest, envName, interactionLog);
     }
+    
+    // Add separator line between pages
+    console.log("");
   }
 }
 
 export async function captureEnvironment(
   env: EnvConfig,
   manifest: ProgressManifest,
-  log: InteractionLog
+  interactionLog: InteractionLog
 ): Promise<{ pages: string[]; outputDir: string }> {
   const outputDir = path.join(getScreenshotsDir(), env.name);
 
   if (isEnvironmentComplete(manifest, env.name)) {
-    console.log(`\nSkipping environment: ${env.name} (already complete)`);
+    log.warning(`Skipping environment: ${env.name} (already complete)`);
     return { pages: manifest.discoveredPages, outputDir };
   }
 
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
 
-  console.log(`\nCapturing environment: ${env.name} (${env.baseUrl})`);
+  log.header(`Capturing: ${env.name}`);
+  console.log(`  ${style.url(env.baseUrl)}\n`);
 
+  const viewport = getViewport();
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
@@ -256,14 +254,14 @@ export async function captureEnvironment(
     let pages: string[];
     if (manifest.discoveredPages.length > 0) {
       pages = manifest.discoveredPages;
-      console.log(`  Using ${pages.length} previously discovered pages`);
+      log.step(`Using ${style.count(pages.length.toString())} previously discovered pages`);
     } else {
       pages = await discoverPages(page);
       manifest.discoveredPages = pages;
       saveProgress(manifest);
     }
 
-    await capturePages(page, pages, env.baseUrl, outputDir, manifest, env.name, log);
+    await capturePages(page, pages, env.baseUrl, outputDir, manifest, env.name, interactionLog);
     markEnvironmentComplete(manifest, env.name);
     return { pages, outputDir };
   } finally {
@@ -273,10 +271,10 @@ export async function captureEnvironment(
 
 export async function captureAll(
   manifest?: ProgressManifest,
-  log?: InteractionLog
+  interactionLog?: InteractionLog
 ): Promise<{ pages: string[]; manifest: ProgressManifest; log: InteractionLog }> {
   const m = manifest ?? createFreshManifest();
-  const l = log ?? createFreshLog();
+  const l = interactionLog ?? createFreshLog();
   let discoveredPages: string[] = m.discoveredPages;
 
   for (const env of environments) {
@@ -286,8 +284,8 @@ export async function captureAll(
         discoveredPages = result.pages;
       }
     } catch (err) {
-      console.error(`\nFailed to capture environment ${env.name}: ${err}`);
-      console.error("Continuing to next environment...\n");
+      log.error(`Failed to capture environment ${env.name}: ${err}`);
+      console.log("  Continuing to next environment...\n");
     }
   }
 
@@ -297,7 +295,7 @@ export async function captureAll(
   // Save failure report if there are failures
   if (l.summary.failed > 0) {
     const reportPath = saveFailureReport(l);
-    console.log(`Failure report saved: ${reportPath}`);
+    log.fileSaved(reportPath, "Failure report");
   }
 
   return { pages: discoveredPages, manifest: m, log: l };
@@ -306,9 +304,9 @@ export async function captureAll(
 // Allow running standalone
 if (import.meta.main) {
   captureAll()
-    .then(({ pages, log }) => {
-      console.log(`\nDone! Captured ${pages.length} pages from each environment.`);
-      console.log(`Interactions: ${log.summary.success} success, ${log.summary.failed} failed`);
+    .then(({ pages, log: l }) => {
+      log.success(`Done! Captured ${pages.length} pages from each environment.`);
+      console.log(`  ${style.info("Interactions:")} ${l.summary.success} success, ${l.summary.failed} failed`);
     })
     .catch(console.error);
 }

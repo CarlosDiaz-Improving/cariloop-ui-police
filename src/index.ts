@@ -1,29 +1,40 @@
 import fs from "fs";
 import path from "path";
-import { captureAll } from "./capture";
-import { compareScreenshots } from "./compare";
-import { generateReport } from "./report";
+
+// Core imports
+import { captureAll } from "./core/capture";
+import { compareScreenshots } from "./core/compare";
+import { generateReport } from "./core/report";
 import { 
   getScreenshotsDir, 
   setCurrentApp, 
-  getCurrentApp, 
   getCurrentAppConfig,
   APPS,
   type AppType 
-} from "./config";
+} from "./core/config";
 import {
   loadProgress,
   deleteProgress,
   allEnvironmentsComplete,
-  printProgressSummary,
   type ProgressManifest,
-} from "./progress";
+} from "./core/progress";
 import {
   loadLog,
-  createFreshLog,
-  printLogSummary,
   type InteractionLog,
-} from "./logger";
+} from "./core/logger";
+
+// Utils imports
+import { 
+  printBanner, 
+  printMenu, 
+  printAppSelected,
+  printComparisonSummary,
+  printMinikubeReminder,
+  printReloadHint,
+  log, 
+  style, 
+  symbols 
+} from "./utils/terminal";
 
 type RunMode = "fresh" | "resume" | "compare-only" | "retry-failed";
 
@@ -35,14 +46,14 @@ function promptUser(question: string): string {
 }
 
 function selectApp(): AppType {
-  console.log("\n📱 Select application to test:\n");
-  APP_CHOICES.forEach((app, i) => {
+  const options = APP_CHOICES.map((app, index) => {
     const config = APPS[app];
-    console.log(`  [${i + 1}] ${config.displayName}`);
+    return { key: (index + 1).toString(), label: config.displayName };
   });
-  console.log("");
   
-  const choice = promptUser("Your choice [1]: ");
+  printMenu("Select application to test", options);
+  
+  const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
   const index = parseInt(choice || "1", 10) - 1;
   
   if (index >= 0 && index < APP_CHOICES.length) {
@@ -73,12 +84,32 @@ function deleteAllScreenshots(): void {
   const reportFile = path.join(screenshotsDir, "failure-report.md");
   if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
   if (fs.existsSync(reportFile)) fs.unlinkSync(reportFile);
-  console.log("Cleared all screenshots, progress, and logs.\n");
+  log.action("Cleared all screenshots, progress, and logs");
+}
+
+function printProgressSummary(manifest: ProgressManifest): void {
+  console.log(`\n${style.header("Previous Progress")}`);
+  console.log(`  ${symbols.bullet} Discovered pages: ${style.count(manifest.discoveredPages.length.toString())}`);
+  console.log(`  ${symbols.bullet} Environments:`);
+  for (const [env, progress] of Object.entries(manifest.environments)) {
+    const complete = progress.complete ? style.success("complete") : style.warning("partial");
+    console.log(`    ${symbols.tee} ${env}: ${complete} (${progress.capturedPages.length} pages)`);
+  }
+  console.log("");
+}
+
+function printLogSummary(interactionLog: InteractionLog): void {
+  console.log(`\n${style.header("Interaction Log")}`);
+  console.log(`  ${symbols.bullet} Total: ${style.count(interactionLog.summary.total.toString())}`);
+  console.log(`    ${symbols.tee} ${style.success(`${symbols.check} Success: ${interactionLog.summary.success}`)}`);
+  console.log(`    ${symbols.tee} ${style.error(`${symbols.cross} Failed: ${interactionLog.summary.failed}`)}`);
+  console.log(`    ${symbols.corner} ${style.muted(`${symbols.arrow} Skipped: ${interactionLog.summary.skipped}`)}`);
+  console.log("");
 }
 
 function determineRunMode(existing: ProgressManifest | null, existingLog: InteractionLog | null): RunMode {
   if (!existing) {
-    console.log("No previous progress found. Starting fresh capture.\n");
+    log.step("No previous progress found. Starting fresh capture.");
     return "fresh";
   }
 
@@ -90,27 +121,37 @@ function determineRunMode(existing: ProgressManifest | null, existingLog: Intera
   }
 
   if (allEnvironmentsComplete(existing)) {
-    console.log("All environments were fully captured in a previous run.");
-    console.log("  [1] Compare only (skip capture)");
-    console.log("  [2] Restart fresh (delete all and recapture)");
+    console.log(`${style.info("All environments were fully captured in a previous run.")}\n`);
+    
+    const options = [
+      { key: "1", label: "Compare only (skip capture)" },
+      { key: "2", label: "Restart fresh (delete all and recapture)" },
+    ];
     if (existingLog && existingLog.summary.failed > 0) {
-      console.log("  [3] Retry failed interactions only");
+      options.push({ key: "3", label: "Retry failed interactions only" });
     }
-    const choice = promptUser("\nYour choice [1]: ");
+    printMenu("What would you like to do?", options.map((o, i) => ({ key: o.key, label: o.label })));
+    
+    const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
     if (choice === "2") return "fresh";
     if (choice === "3" && existingLog?.summary.failed) return "retry-failed";
     return "compare-only";
   }
 
   // Partial progress
-  console.log("Previous run was interrupted. What would you like to do?");
-  console.log("  [1] Resume (continue where it left off)");
-  console.log("  [2] Restart fresh (delete all and recapture)");
-  console.log("  [3] Compare only (use whatever screenshots exist)");
+  console.log(`${style.warning("Previous run was interrupted.")}\n`);
+  
+  const options = [
+    { key: "1", label: "Resume (continue where it left off)" },
+    { key: "2", label: "Restart fresh (delete all and recapture)" },
+    { key: "3", label: "Compare only (use whatever screenshots exist)" },
+  ];
   if (existingLog && existingLog.summary.failed > 0) {
-    console.log("  [4] Retry failed interactions only");
+    options.push({ key: "4", label: "Retry failed interactions only" });
   }
-  const choice = promptUser("\nYour choice [1]: ");
+  printMenu("What would you like to do?", options.map((o) => ({ key: o.key, label: o.label })));
+  
+  const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
   if (choice === "2") return "fresh";
   if (choice === "3") return "compare-only";
   if (choice === "4" && existingLog?.summary.failed) return "retry-failed";
@@ -119,105 +160,114 @@ function determineRunMode(existing: ProgressManifest | null, existingLog: Intera
 
 async function runFresh(): Promise<{ pages: string[]; log: InteractionLog }> {
   deleteAllScreenshots();
-  console.log("Step 1: Capturing screenshots...");
-  const { pages, log } = await captureAll();
-  return { pages, log };
+  log.step("Step 1: Capturing screenshots...");
+  const { pages, log: interactionLog } = await captureAll();
+  return { pages, log: interactionLog };
 }
 
-async function runResume(manifest: ProgressManifest, log: InteractionLog | null): Promise<{ pages: string[]; log: InteractionLog }> {
-  console.log("Step 1: Resuming screenshot capture...");
-  const result = await captureAll(manifest, log ?? undefined);
+async function runResume(manifest: ProgressManifest, interactionLog: InteractionLog | null): Promise<{ pages: string[]; log: InteractionLog }> {
+  log.step("Step 1: Resuming screenshot capture...");
+  const result = await captureAll(manifest, interactionLog ?? undefined);
   return { pages: result.pages, log: result.log };
 }
 
 async function runRetryFailed(manifest: ProgressManifest, existingLog: InteractionLog): Promise<{ pages: string[]; log: InteractionLog }> {
-  console.log("Step 1: Retrying failed interactions...");
-  // Use existing log to skip already successful ones
+  log.step("Step 1: Retrying failed interactions...");
   const result = await captureAll(manifest, existingLog);
   return { pages: result.pages, log: result.log };
 }
 
 function runCompareOnly(manifest: ProgressManifest | null): { pages: string[]; log: InteractionLog | null } {
-  console.log("Step 1: Skipping capture (compare-only mode).");
+  log.step("Step 1: Skipping capture (compare-only mode)");
   if (manifest && manifest.discoveredPages.length > 0) {
     return { pages: manifest.discoveredPages, log: null };
   }
   // Fallback: discover pages from files on disk
   const pages = discoverPagesFromDisk();
   if (pages.length === 0) {
-    console.error("No screenshots found on disk. Cannot compare.");
+    log.error("No screenshots found on disk. Cannot compare.");
     process.exit(1);
   }
-  console.log(`  Found ${pages.length} pages from existing screenshots.`);
+  console.log(`  ${style.muted(`Found ${pages.length} pages from existing screenshots.`)}`);
   return { pages, log: null };
 }
 
 async function main() {
-  console.log("=== Cariloop UI Police ===\n");
+  printBanner();
 
   // Step 0: Select app
   const selectedApp = selectApp();
   setCurrentApp(selectedApp);
   const appConfig = getCurrentAppConfig();
-  console.log(`\n🎯 Selected: ${appConfig.displayName}\n`);
-  console.log(`   Screenshots: ${getScreenshotsDir()}/`);
-  console.log(`   Path prefix: ${appConfig.pathPrefix || "(root)"}\n`);
+  
+  printAppSelected(appConfig.displayName, getScreenshotsDir(), appConfig.pathPrefix);
+
+  // Show Minikube reminder for local environment testing
+  printMinikubeReminder();
+  printReloadHint();
 
   const existing = loadProgress();
   const existingLog = loadLog();
   const mode = determineRunMode(existing, existingLog.summary.total > 0 ? existingLog : null);
 
   let pages: string[];
-  let log: InteractionLog | null = null;
+  let interactionLog: InteractionLog | null = null;
 
   switch (mode) {
     case "fresh":
       const freshResult = await runFresh();
       pages = freshResult.pages;
-      log = freshResult.log;
+      interactionLog = freshResult.log;
       break;
     case "resume":
       const resumeResult = await runResume(existing!, existingLog.summary.total > 0 ? existingLog : null);
       pages = resumeResult.pages;
-      log = resumeResult.log;
+      interactionLog = resumeResult.log;
       break;
     case "retry-failed":
       const retryResult = await runRetryFailed(existing!, existingLog);
       pages = retryResult.pages;
-      log = retryResult.log;
+      interactionLog = retryResult.log;
       break;
     case "compare-only":
       const compareResult = runCompareOnly(existing);
       pages = compareResult.pages;
-      log = compareResult.log;
+      interactionLog = compareResult.log;
       break;
   }
 
   // Step 2: Compare screenshots
-  console.log("\nStep 2: Comparing screenshots...");
+  log.step("Step 2: Comparing screenshots...");
   const results = compareScreenshots(pages);
 
   // Step 3: Generate HTML report
-  console.log("\nStep 3: Generating report...");
+  log.step("Step 3: Generating report...");
   const reportPath = generateReport(results);
 
-  console.log(`\n=== Done! ===`);
-  console.log(`Pages compared: ${results.length}`);
-  console.log(`Report: ${reportPath}`);
-
+  // Final summary
   const avgDiff =
     results.length > 0
       ? results.reduce((sum, r) => sum + r.diffPercentage, 0) / results.length
       : 0;
-  console.log(`Average difference: ${avgDiff.toFixed(2)}%`);
+  
+  printComparisonSummary(results.length, avgDiff, reportPath);
   
   // Show interaction summary
-  if (log) {
-    console.log(`\nInteractions: ✅ ${log.summary.success} success, ❌ ${log.summary.failed} failed`);
-    if (log.summary.failed > 0) {
-      console.log(`See: ${getScreenshotsDir()}/failure-report.md for details`);
+  if (interactionLog) {
+    console.log(`\n  ${style.info("Interactions:")} ${style.success(`${symbols.check} ${interactionLog.summary.success}`)} success, ${style.error(`${symbols.cross} ${interactionLog.summary.failed}`)} failed`);
+    if (interactionLog.summary.failed > 0) {
+      console.log(`  ${style.muted(`See: ${getScreenshotsDir()}/failure-report.md for details`)}`);
     }
   }
+  
+  console.log("");
+  
+  // Show option to run again
+  console.log(`  ${style.dim("To run again, use")} ${style.orange("bun run start")}`);
+  console.log("");
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  log.error(`Fatal error: ${err}`);
+  process.exit(1);
+});
