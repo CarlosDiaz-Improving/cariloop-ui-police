@@ -4,12 +4,13 @@ import path from "path";
 import {
   environments,
   viewport,
-  screenshotsDir,
+  getScreenshotsDir,
+  getCurrentAppConfig,
   timeouts,
   type EnvConfig,
 } from "./config";
-import { login } from "./auth";
-import { discoverAdminPages } from "./discover";
+import { login, logout, needsLogoutBeforeSwitch } from "./auth";
+import { discoverPages } from "./discover";
 import type { ProgressManifest } from "./progress";
 import {
   isPageCaptured,
@@ -181,6 +182,7 @@ async function capturePages(
       const url = `${baseUrl}${pagePath}`;
       const filename = pathToFilename(pagePath);
       const filepath = path.join(outputDir, filename);
+      const appConfig = getCurrentAppConfig();
 
       console.log(`  Capturing ${pagePath}...`);
       try {
@@ -188,9 +190,9 @@ async function capturePages(
           waitUntil: "domcontentloaded",
           timeout: timeouts.pageNavigation,
         });
-        // Wait for SPA content to render (sidebar nav links)
+        // Wait for SPA content to render
         try {
-          await page.waitForSelector('a[href*="/admin"]', {
+          await page.waitForSelector(appConfig.readySelector, {
             timeout: timeouts.contentReady,
           });
         } catch {
@@ -232,7 +234,7 @@ export async function captureEnvironment(
   manifest: ProgressManifest,
   log: InteractionLog
 ): Promise<{ pages: string[]; outputDir: string }> {
-  const outputDir = path.join(screenshotsDir, env.name);
+  const outputDir = path.join(getScreenshotsDir(), env.name);
 
   if (isEnvironmentComplete(manifest, env.name)) {
     console.log(`\nSkipping environment: ${env.name} (already complete)`);
@@ -248,7 +250,7 @@ export async function captureEnvironment(
   const page = await context.newPage();
 
   try {
-    await login(page, env.baseUrl);
+    await login(page, env.baseUrl, env.name);
 
     // Reuse already-discovered pages, or discover fresh
     let pages: string[];
@@ -256,7 +258,7 @@ export async function captureEnvironment(
       pages = manifest.discoveredPages;
       console.log(`  Using ${pages.length} previously discovered pages`);
     } else {
-      pages = await discoverAdminPages(page);
+      pages = await discoverPages(page);
       manifest.discoveredPages = pages;
       saveProgress(manifest);
     }

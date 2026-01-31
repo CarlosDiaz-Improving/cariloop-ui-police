@@ -1,8 +1,10 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
-import { screenshotsDir } from "./config";
+import { getScreenshotsDir } from "./config";
 
-const LOG_FILE = path.join(screenshotsDir, "interaction-log.json");
+function getLogFile(): string {
+  return path.join(getScreenshotsDir(), "interaction-log.json");
+}
 
 export type LogStatus = "success" | "failed" | "skipped";
 
@@ -34,9 +36,10 @@ export interface InteractionLog {
  * Load existing log or create a new one
  */
 export function loadLog(): InteractionLog {
-  if (existsSync(LOG_FILE)) {
+  const logFile = getLogFile();
+  if (existsSync(logFile)) {
     try {
-      const content = readFileSync(LOG_FILE, "utf-8");
+      const content = readFileSync(logFile, "utf-8");
       return JSON.parse(content) as InteractionLog;
     } catch {
       // Corrupted log, create new
@@ -66,12 +69,13 @@ export function createFreshLog(): InteractionLog {
  * Save log to disk
  */
 export function saveLog(log: InteractionLog): void {
-  const dir = path.dirname(LOG_FILE);
+  const logFile = getLogFile();
+  const dir = path.dirname(logFile);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
   log.lastUpdated = new Date().toISOString();
-  writeFileSync(LOG_FILE, JSON.stringify(log, null, 2), "utf-8");
+  writeFileSync(logFile, JSON.stringify(log, null, 2), "utf-8");
 }
 
 /**
@@ -233,7 +237,7 @@ export function generateFailureReport(log: InteractionLog): string {
  * Save failure report to file
  */
 export function saveFailureReport(log: InteractionLog): string {
-  const reportPath = path.join(screenshotsDir, "failure-report.md");
+  const reportPath = path.join(getScreenshotsDir(), "failure-report.md");
   const content = generateFailureReport(log);
   writeFileSync(reportPath, content, "utf-8");
   return reportPath;

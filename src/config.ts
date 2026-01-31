@@ -3,6 +3,18 @@ export interface EnvConfig {
   baseUrl: string;
 }
 
+// App types supported by the tool
+export type AppType = "admin" | "plan" | "coach" | "auth";
+
+// Configuration for each app
+export interface AppConfig {
+  name: string;
+  displayName: string;
+  pathPrefix: string;
+  readySelector: string;
+  fallbackPages: string[];
+}
+
 const env = Bun.env;
 
 function requireEnv(key: string): string {
@@ -13,6 +25,11 @@ function requireEnv(key: string): string {
   return value.trim();
 }
 
+function optionalEnv(key: string): string | undefined {
+  const value = env[key];
+  return value?.trim() || undefined;
+}
+
 function requireNumber(key: string): number {
   const value = requireEnv(key);
   const parsed = Number(value);
@@ -21,6 +38,87 @@ function requireNumber(key: string): number {
   }
   return parsed;
 }
+
+// App configurations
+export const APPS: Record<AppType, AppConfig> = {
+  admin: {
+    name: "admin",
+    displayName: "Cariloop Admin",
+    pathPrefix: "/admin",
+    readySelector: 'a[href*="/admin"]',
+    fallbackPages: [
+      "/admin/dashboard",
+      "/admin/users",
+      "/admin/companies",
+      "/admin/coaches",
+      "/admin/reports",
+      "/admin/settings",
+    ],
+  },
+  plan: {
+    name: "plan",
+    displayName: "Cariloop Plan",
+    pathPrefix: "/plan",
+    readySelector: 'a[href*="/plan"]',
+    fallbackPages: [
+      "/plan/dashboard",
+      "/plan/care-concierge",
+      "/plan/resources",
+      "/plan/profile",
+    ],
+  },
+  coach: {
+    name: "coach",
+    displayName: "Cariloop Coach",
+    pathPrefix: "/coach",
+    readySelector: 'a[href*="/coach"]',
+    fallbackPages: [
+      "/coach/dashboard",
+      "/coach/members",
+      "/coach/queue",
+      "/coach/schedule",
+    ],
+  },
+  auth: {
+    name: "auth",
+    displayName: "Cariloop Auth",
+    pathPrefix: "",
+    readySelector: 'form, input[type="email"]',
+    fallbackPages: [
+      "/login",
+      "/register",
+      "/forgot-password",
+      "/reset-password",
+    ],
+  },
+};
+
+// Current app state
+let currentApp: AppType = "admin";
+
+export function setCurrentApp(app: AppType): void {
+  currentApp = app;
+}
+
+export function getCurrentApp(): AppType {
+  return currentApp;
+}
+
+export function getCurrentAppConfig(): AppConfig {
+  return APPS[currentApp];
+}
+
+export function getScreenshotsDir(): string {
+  return `screenshots/cariloop-${currentApp}`;
+}
+
+export function getReportsDir(): string {
+  return `reports/cariloop-${currentApp}`;
+}
+
+// Legacy export for backward compatibility
+export const screenshotsDir = "screenshots";
+export const reportsDir = "reports";
 
 export const environments: EnvConfig[] = [
   {
@@ -33,25 +131,53 @@ export const environments: EnvConfig[] = [
   },
 ];
 
+// Credentials - separate per environment with USE_SAME_CREDENTIALS flag
+export function getCredentials(envName: string): { email: string; password: string } {
+  const useSame = useSameCredentials();
+  
+  if (useSame) {
+    // When using same credentials, use DEV credentials for both
+    return {
+      email: requireEnv("DEV_CARILOOP_EMAIL"),
+      password: requireEnv("DEV_CARILOOP_PASSWORD"),
+    };
+  }
+  
+  // Different credentials per environment
+  if (envName === "local") {
+    return {
+      email: requireEnv("LOCAL_CARILOOP_EMAIL"),
+      password: requireEnv("LOCAL_CARILOOP_PASSWORD"),
+    };
+  }
+  
+  return {
+    email: requireEnv("DEV_CARILOOP_EMAIL"),
+    password: requireEnv("DEV_CARILOOP_PASSWORD"),
+  };
+}
+
+// Check if same credentials are used for both environments
+export function useSameCredentials(): boolean {
+  const value = optionalEnv("USE_SAME_CREDENTIALS");
+  return value?.toLowerCase() === "true";
+}
+
+// Legacy export for backward compatibility
 export const credentials = {
-  email: requireEnv("CARILOOP_EMAIL"),
-  password: requireEnv("CARILOOP_PASSWORD"),
+  email: optionalEnv("DEV_CARILOOP_EMAIL") ?? "",
+  password: optionalEnv("DEV_CARILOOP_PASSWORD") ?? "",
 };
 
 export const viewport = { width: 1920, height: 1080 };
 
-export const screenshotsDir = "screenshots";
-export const reportsDir = "reports";
+// Fallback pages (now dynamic based on current app)
+export function getFallbackPages(): string[] {
+  return APPS[currentApp].fallbackPages;
+}
 
-// Fallback admin pages if automatic discovery fails
-export const fallbackAdminPages = [
-  "/admin/dashboard",
-  "/admin/users",
-  "/admin/companies",
-  "/admin/coaches",
-  "/admin/reports",
-  "/admin/settings",
-];
+// Legacy export for backward compatibility
+export const fallbackAdminPages = APPS.admin.fallbackPages;
 
 export const timeouts = {
   loginNavigation: requireNumber("LOGIN_NAV_TIMEOUT"),

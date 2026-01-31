@@ -4,9 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Does
 
-Visual regression testing tool for Cariloop's admin UI. Captures screenshots from two environments (dev-plan and local-plan), compares them pixel-by-pixel, and generates an HTML report highlighting visual differences.
+Visual regression testing tool for Cariloop frontend applications. Supports multiple apps (admin, plan, coach, auth). Captures screenshots from two environments (dev-plan and local-plan), compares them pixel-by-pixel, and generates an HTML report highlighting visual differences.
 
-**NEW: Interaction Capture** - Beyond static page screenshots, the tool now captures UI states after interactions:
+**Multi-App Support** - Select which Cariloop app to test at startup:
+- **Cariloop Admin** (`/admin`) - Admin dashboard
+- **Cariloop Plan** (`/plan`) - Member-facing plan
+- **Cariloop Coach** (`/coach`) - Care coach dashboard
+- **Cariloop Auth** (`/`) - Login/auth screens
+
+**Interaction Capture** - Beyond static page screenshots, the tool captures UI states after interactions:
 - Clicking dropdown menus (3-dot action menus)
 - Opening modals via ADD/IMPORT buttons
 - Expanding sidebar sections (e.g., SERVICES)
@@ -39,23 +45,25 @@ Default to Bun instead of Node.js for everything:
 Pipeline runs in three sequential steps, orchestrated by `src/index.ts`:
 
 ```
-index.ts (orchestrator + interactive menu)
+index.ts (orchestrator + app selection + interactive menu)
+  → config.ts (multi-app configuration: APPS, getScreenshotsDir, setCurrentApp)
   → capture.ts (Playwright browser automation)
-      → auth.ts (login with retry)
-      → discover.ts (scan DOM for admin nav links)
+      → auth.ts (login/logout with retry, env-specific credentials)
+      → discover.ts (scan DOM for app-specific nav links)
       → interactions.ts (define & execute UI interactions)
-      → progress.ts (persist state to screenshots/progress.json)
+      → progress.ts (persist state to <app>-screenshots/progress.json)
   → compare.ts (pixelmatch pixel-level diff)
   → report.ts (self-contained HTML with base64-embedded images)
 ```
 
 **Key design decisions:**
-- **SPA navigation**: Uses `waitUntil: "domcontentloaded"` (not `networkidle`) because the Cariloop SPA has persistent connections that prevent network idle. Content readiness is handled by `page.waitForSelector('a[href*="/admin"]')` for sidebar rendering.
-- **Progress manifest** (`screenshots/progress.json`): Saves after every captured page/interaction so interrupted runs can resume. Tracks both `capturedPages` and `capturedInteractions` per environment.
-- **Page discovery**: First environment discovers admin pages from sidebar links; subsequent environments reuse the same page list from the manifest rather than re-discovering.
-- **Interaction system** (`interactions.ts`): Defines configurable interactions (click, hover) with CSS selectors. Each interaction specifies what element to interact with, what to wait for after, and how to reset the UI state.
-- **Resilience**: Login has configurable retries. Per-environment failures are caught and logged without aborting the whole run. Individual page/interaction capture failures are caught and skipped.
-- **Interactive menu on start**: Detects prior progress and offers Resume/Restart/Compare-only modes.
+- **Multi-app architecture**: `config.ts` defines `APPS` record with each app's pathPrefix, readySelector, and fallbackPages. `setCurrentApp()` switches context; `getScreenshotsDir()` and `getReportsDir()` return app-specific paths.
+- **SPA navigation**: Uses `waitUntil: "domcontentloaded"` (not `networkidle`) because Cariloop SPAs have persistent connections. Content readiness uses app-specific `readySelector`.
+- **Progress manifest** (`<app>-screenshots/progress.json`): Saves after every captured page/interaction so interrupted runs can resume. Tracks both `capturedPages` and `capturedInteractions` per environment.
+- **Page discovery**: First environment discovers pages from navigation links; subsequent environments reuse the same page list from the manifest.
+- **Interaction system** (`interactions.ts`): Defines configurable interactions (click, hover) with CSS selectors and page filters.
+- **Credential handling**: Supports optional separate credentials for local environment via `LOCAL_CARILOOP_EMAIL`/`LOCAL_CARILOOP_PASSWORD`.
+- **Resilience**: Login has configurable retries. Per-environment failures are caught and logged without aborting the whole run.
 
 ## Adding New Interactions
 
@@ -76,11 +84,30 @@ Edit `src/interactions.ts` to add new UI elements to capture:
 
 ## Configuration
 
-All settings live in `src/config.ts`: environment URLs, credentials, viewport (1920x1080), timeouts, retry counts, and fallback admin pages. No environment variables needed.
+All settings live in `src/config.ts`:
+- `APPS` record: Defines pathPrefix, readySelector, fallbackPages for each app
+- `environments`: URLs for dev and local environments
+- `getCredentials(envName)`: Returns credentials, supporting separate local env credentials
+- `viewport`: 1920x1080
+- `timeouts`: Configurable via .env
 
 ## Generated Directories
 
-- `screenshots/dev/`, `screenshots/local/` — captured PNGs (pages + interactions)
-- `screenshots/diff/` — diff overlay PNGs
-- `screenshots/progress.json` — resumable state (pages + interactions)
-- `reports/index.html` — final visual report (grouped by page with nested interactions)
+Organized by app under `screenshots/` and `reports/`:
+
+```
+screenshots/
+  cariloop-admin/
+    dev/       # captured PNGs
+    local/     # captured PNGs
+    diff/      # diff overlay PNGs
+    progress.json
+    interaction-log.json
+  cariloop-plan/
+    ...
+reports/
+  cariloop-admin/
+    index.html
+  cariloop-plan/
+    index.html
+```

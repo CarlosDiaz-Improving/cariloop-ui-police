@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { screenshotsDir } from "./config";
+import { getScreenshotsDir } from "./config";
 
 export interface ComparisonResult {
   pagePath: string;
@@ -45,6 +45,7 @@ function resizeToMatch(img: PNG, targetWidth: number, targetHeight: number): PNG
 }
 
 export function compareScreenshots(pages: string[]): ComparisonResult[] {
+  const screenshotsDir = getScreenshotsDir();
   const devDir = path.join(screenshotsDir, "dev");
   const localDir = path.join(screenshotsDir, "local");
   const diffDir = path.join(screenshotsDir, "diff");
@@ -152,7 +153,7 @@ export function compareScreenshots(pages: string[]): ComparisonResult[] {
 // Allow running standalone
 if (import.meta.main) {
   // Discover pages from existing dev screenshots
-  const devDir = path.join(screenshotsDir, "dev");
+  const devDir = path.join(getScreenshotsDir(), "dev");
   if (!fs.existsSync(devDir)) {
     console.error("No dev screenshots found. Run capture first.");
     process.exit(1);

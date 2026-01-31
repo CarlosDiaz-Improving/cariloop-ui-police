@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { ComparisonResult } from "./compare";
-import { reportsDir } from "./config";
+import { getReportsDir, getCurrentAppConfig } from "./config";
 
 function imageToBase64(filepath: string): string {
   if (!fs.existsSync(filepath)) return "";
@@ -75,6 +75,8 @@ function renderCard(r: ComparisonResult, title: string, isInteraction: boolean =
 }
 
 export function generateReport(results: ComparisonResult[]): string {
+  const reportsDir = getReportsDir();
+  const appConfig = getCurrentAppConfig();
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
 
   const grouped = groupResults(results);
@@ -122,7 +124,7 @@ export function generateReport(results: ComparisonResult[]): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cariloop UI Police - Visual Regression Report</title>
+  <title>${appConfig.displayName} - Visual Regression Report</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -237,8 +239,8 @@ export function generateReport(results: ComparisonResult[]): string {
 </head>
 <body>
   <div class="header">
-    <h1>Cariloop UI Police - Visual Regression Report</h1>
-    <p>Comparing <strong>dev-plan</strong> vs <strong>local-plan</strong></p>
+    <h1>${appConfig.displayName} - Visual Regression Report</h1>
+    <p>Comparing <strong>dev</strong> vs <strong>local</strong></p>
     <div class="summary">
       <div class="stat">
         <div class="stat-value">${totalPages}</div>

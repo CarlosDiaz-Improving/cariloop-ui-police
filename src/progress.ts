@@ -1,8 +1,10 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import path from "path";
-import { screenshotsDir, environments } from "./config";
+import { getScreenshotsDir, environments } from "./config";
 
-const PROGRESS_FILE = path.join(screenshotsDir, "progress.json");
+function getProgressFile(): string {
+  return path.join(getScreenshotsDir(), "progress.json");
+}
 
 export interface EnvironmentProgress {
   capturedPages: string[];
@@ -18,9 +20,10 @@ export interface ProgressManifest {
 }
 
 export function loadProgress(): ProgressManifest | null {
-  if (!existsSync(PROGRESS_FILE)) return null;
+  const progressFile = getProgressFile();
+  if (!existsSync(progressFile)) return null;
   try {
-    const text = readFileSync(PROGRESS_FILE, "utf-8");
+    const text = readFileSync(progressFile, "utf-8");
     return JSON.parse(text) as ProgressManifest;
   } catch {
     return null;
@@ -28,16 +31,18 @@ export function loadProgress(): ProgressManifest | null {
 }
 
 export function saveProgress(manifest: ProgressManifest): void {
-  const dir = path.dirname(PROGRESS_FILE);
+  const progressFile = getProgressFile();
+  const dir = path.dirname(progressFile);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  writeFileSync(PROGRESS_FILE, JSON.stringify(manifest, null, 2), "utf-8");
+  writeFileSync(progressFile, JSON.stringify(manifest, null, 2), "utf-8");
 }
 
 export function deleteProgress(): void {
-  if (existsSync(PROGRESS_FILE)) {
-    unlinkSync(PROGRESS_FILE);
+  const progressFile = getProgressFile();
+  if (existsSync(progressFile)) {
+    unlinkSync(progressFile);
   }
 }
 
@@ -92,7 +97,7 @@ export function isPageCaptured(
   if (!env) return false;
   if (!env.capturedPages.includes(pagePath)) return false;
   // Also verify the file actually exists on disk
-  const filepath = path.join(screenshotsDir, envName, pathToFilename(pagePath));
+  const filepath = path.join(getScreenshotsDir(), envName, pathToFilename(pagePath));
   return existsSync(filepath);
 }
 
@@ -116,7 +121,7 @@ export function isInteractionCaptured(
   const interactions = env.capturedInteractions[pagePath] ?? [];
   if (!interactions.includes(interactionId)) return false;
   // Verify file exists on disk
-  const filepath = path.join(screenshotsDir, envName, interactionFilename(pagePath, interactionId));
+  const filepath = path.join(getScreenshotsDir(), envName, interactionFilename(pagePath, interactionId));
   return existsSync(filepath);
 }
 

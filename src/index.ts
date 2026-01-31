@@ -3,7 +3,14 @@ import path from "path";
 import { captureAll } from "./capture";
 import { compareScreenshots } from "./compare";
 import { generateReport } from "./report";
-import { screenshotsDir } from "./config";
+import { 
+  getScreenshotsDir, 
+  setCurrentApp, 
+  getCurrentApp, 
+  getCurrentAppConfig,
+  APPS,
+  type AppType 
+} from "./config";
 import {
   loadProgress,
   deleteProgress,
@@ -20,7 +27,32 @@ import {
 
 type RunMode = "fresh" | "resume" | "compare-only" | "retry-failed";
 
+const APP_CHOICES: AppType[] = ["admin", "plan", "coach", "auth"];
+
+function promptUser(question: string): string {
+  const answer = prompt(question);
+  return answer?.trim() ?? "";
+}
+
+function selectApp(): AppType {
+  console.log("\n📱 Select application to test:\n");
+  APP_CHOICES.forEach((app, i) => {
+    const config = APPS[app];
+    console.log(`  [${i + 1}] ${config.displayName}`);
+  });
+  console.log("");
+  
+  const choice = promptUser("Your choice [1]: ");
+  const index = parseInt(choice || "1", 10) - 1;
+  
+  if (index >= 0 && index < APP_CHOICES.length) {
+    return APP_CHOICES[index]!;
+  }
+  return "admin";
+}
+
 function discoverPagesFromDisk(): string[] {
+  const screenshotsDir = getScreenshotsDir();
   const devDir = path.join(screenshotsDir, "dev");
   if (!fs.existsSync(devDir)) return [];
   const files = fs.readdirSync(devDir).filter((f) => f.endsWith(".png") && !f.includes("__"));
@@ -28,6 +60,7 @@ function discoverPagesFromDisk(): string[] {
 }
 
 function deleteAllScreenshots(): void {
+  const screenshotsDir = getScreenshotsDir();
   const dirs = ["dev", "local", "diff"].map((d) => path.join(screenshotsDir, d));
   for (const dir of dirs) {
     if (fs.existsSync(dir)) {
@@ -41,11 +74,6 @@ function deleteAllScreenshots(): void {
   if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
   if (fs.existsSync(reportFile)) fs.unlinkSync(reportFile);
   console.log("Cleared all screenshots, progress, and logs.\n");
-}
-
-function promptUser(question: string): string {
-  const answer = prompt(question);
-  return answer?.trim() ?? "";
 }
 
 function determineRunMode(existing: ProgressManifest | null, existingLog: InteractionLog | null): RunMode {
@@ -127,6 +155,14 @@ function runCompareOnly(manifest: ProgressManifest | null): { pages: string[]; l
 async function main() {
   console.log("=== Cariloop UI Police ===\n");
 
+  // Step 0: Select app
+  const selectedApp = selectApp();
+  setCurrentApp(selectedApp);
+  const appConfig = getCurrentAppConfig();
+  console.log(`\n🎯 Selected: ${appConfig.displayName}\n`);
+  console.log(`   Screenshots: ${getScreenshotsDir()}/`);
+  console.log(`   Path prefix: ${appConfig.pathPrefix || "(root)"}\n`);
+
   const existing = loadProgress();
   const existingLog = loadLog();
   const mode = determineRunMode(existing, existingLog.summary.total > 0 ? existingLog : null);
@@ -179,7 +215,7 @@ async function main() {
   if (log) {
     console.log(`\nInteractions: ✅ ${log.summary.success} success, ❌ ${log.summary.failed} failed`);
     if (log.summary.failed > 0) {
-      console.log(`See: screenshots/failure-report.md for details`);
+      console.log(`See: ${getScreenshotsDir()}/failure-report.md for details`);
     }
   }
 }
