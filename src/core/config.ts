@@ -68,7 +68,7 @@ export interface EnvConfig {
 
 export const environments: EnvConfig[] = [
   {
-    name: "dev",
+    name: "develop",
     baseUrl: requireEnv("DEV_PLAN_URL"),
   },
   {

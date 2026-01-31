@@ -5,7 +5,7 @@ import { spawn } from "child_process";
 // Core imports
 import { captureAll } from "./core/capture";
 import { compareScreenshots } from "./core/compare";
-import { generateReport } from "./core/report";
+import { generateReport, generateMainIndex } from "./core/report";
 import { 
   getScreenshotsDir, 
   setCurrentApp, 
@@ -267,6 +267,10 @@ async function main() {
   // Step 3: Generate HTML report
   log.step("Step 3: Generating report...");
   const reportPath = generateReport(results);
+  
+  // Step 4: Update main index
+  log.step("Step 4: Updating main index...");
+  generateMainIndex();
 
   // Final summary
   const avgDiff =
@@ -286,16 +290,16 @@ async function main() {
   
   console.log("");
   
-  // Open report in browser
-  log.action("Opening report in browser...");
-  const fullReportPath = path.resolve(reportPath);
+  // Open main index in browser
+  log.action("Opening reports dashboard in browser...");
+  const mainIndexPath = path.resolve("reports/index.html");
   
   // Use 'open' on macOS, 'xdg-open' on Linux, 'start' on Windows
   const openCommand = process.platform === "darwin" ? "open" 
     : process.platform === "win32" ? "start" 
     : "xdg-open";
   
-  spawn(openCommand, [fullReportPath], { 
+  spawn(openCommand, [mainIndexPath], { 
     detached: true, 
     stdio: "ignore" 
   }).unref();

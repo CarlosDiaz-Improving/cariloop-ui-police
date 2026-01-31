@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { ComparisonResult } from "./compare";
-import { getReportsDir, getCurrentAppConfig, environments } from "./config";
+import { getReportsDir, getCurrentAppConfig, environments, APPS, APP_LIST, type AppConfig } from "./config";
 import { log, style } from "../utils/terminal";
 
 function imageToBase64(filepath: string): string {
@@ -44,24 +44,39 @@ function groupResults(results: ComparisonResult[]): GroupedResult[] {
   );
 }
 
-function renderCard(r: ComparisonResult, title: string, isInteraction: boolean = false, cardId: string = ""): string {
+function renderCard(r: ComparisonResult, title: string, isInteraction: boolean = false, cardId: string = "", devBaseUrl: string = "", localBaseUrl: string = ""): string {
   const devB64 = imageToBase64(r.devScreenshot);
   const localB64 = imageToBase64(r.localScreenshot);
   const diffB64 = imageToBase64(r.diffScreenshot);
   const badgeClass = getBadgeClass(r.diffPercentage);
   const cardClass = isInteraction ? "card interaction-card" : "card";
   const headerClass = isInteraction ? "card-header interaction-header" : "card-header";
+  
+  const devFullUrl = devBaseUrl ? `${devBaseUrl}${r.pagePath}` : "";
+  const localFullUrl = localBaseUrl ? `${localBaseUrl}${r.pagePath}` : "";
 
   return `
     <div class="${cardClass}" id="${cardId}">
       <div class="${headerClass}">
-        <h2>${title}</h2>
+        <div class="card-title-group">
+          <h2>${title}</h2>
+          <div class="card-actions">
+            ${devFullUrl ? `<a href="${devFullUrl}" target="_blank" rel="noopener noreferrer" class="card-action-btn develop" title="Open in Develop">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span>Develop</span>
+            </a>` : ''}
+            ${localFullUrl ? `<a href="${localFullUrl}" target="_blank" rel="noopener noreferrer" class="card-action-btn local" title="Open in Local">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span>Local</span>
+            </a>` : ''}
+          </div>
+        </div>
         <span class="badge ${badgeClass}">${r.diffPercentage.toFixed(2)}% diff</span>
       </div>
       <div class="card-images">
         <div class="image-col">
-          <h3>Dev</h3>
-          <img src="${devB64}" alt="Dev screenshot" loading="lazy" onclick="openModal(this, 0)" />
+          <h3>Develop</h3>
+          <img src="${devB64}" alt="Develop screenshot" loading="lazy" onclick="openModal(this, 0)" />
         </div>
         <div class="image-col">
           <h3>Local</h3>
@@ -94,7 +109,7 @@ export function generateReport(results: ComparisonResult[]): string {
       : 0;
 
   // Get environment URLs
-  const devEnv = environments.find(e => e.name === "dev");
+  const devEnv = environments.find(e => e.name === "develop");
   const localEnv = environments.find(e => e.name === "local");
   const devUrl = devEnv?.baseUrl ?? "N/A";
   const localUrl = localEnv?.baseUrl ?? "N/A";
@@ -131,7 +146,7 @@ export function generateReport(results: ComparisonResult[]): string {
       
       // Base page card
       if (group.base) {
-        html += renderCard(group.base, group.pagePath, false, cardId);
+        html += renderCard(group.base, group.pagePath, false, cardId, devUrl, localUrl);
       }
       
       // Interaction cards (nested)
@@ -145,7 +160,7 @@ export function generateReport(results: ComparisonResult[]): string {
         for (const interaction of group.interactions) {
           const title = `${interaction.interactionId}`;
           const interactionCardId = `${cardId}-${interaction.interactionId?.replace(/\s+/g, '-')}`;
-          html += renderCard(interaction, title, true, interactionCardId);
+          html += renderCard(interaction, title, true, interactionCardId, devUrl, localUrl);
         }
         
         html += `</div>`;
@@ -161,6 +176,9 @@ export function generateReport(results: ComparisonResult[]): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${appConfig.displayName} - Visual Regression Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
@@ -207,7 +225,7 @@ export function generateReport(results: ComparisonResult[]): string {
     }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: "Google Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       min-height: 100vh;
@@ -376,6 +394,9 @@ export function generateReport(results: ComparisonResult[]): string {
     .layout.collapsed .nav-section-title {
       text-align: center;
       padding: 8px 4px;
+    }
+    .layout.collapsed .nav-title-count {
+      display: none;
     }
     .nav-item {
       display: flex;
@@ -563,12 +584,13 @@ export function generateReport(results: ComparisonResult[]): string {
     .env-label {
       font-size: 12px;
       font-weight: 700;
-      width: 50px;
+      width: 75px;
       padding: 4px 8px;
       border-radius: 4px;
       text-align: center;
+      flex-shrink: 0;
     }
-    .env-label.dev { background: rgba(74, 222, 128, 0.3); color: #4ade80; }
+    .env-label.develop { background: rgba(74, 222, 128, 0.3); color: #4ade80; }
     .env-label.local { background: rgba(249, 115, 22, 0.3); color: #fb923c; }
     .env-url {
       font-size: 13px;
@@ -605,6 +627,55 @@ export function generateReport(results: ComparisonResult[]): string {
       font-size: 16px; 
       font-weight: 600;
       color: var(--text-primary);
+    }
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .card-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+    .card-action-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    .card-action-btn.develop {
+      color: #22c55e;
+      background: rgba(74, 222, 128, 0.1);
+      border-color: rgba(74, 222, 128, 0.3);
+    }
+    .card-action-btn.develop:hover {
+      background: rgba(74, 222, 128, 0.2);
+      border-color: #22c55e;
+    }
+    .card-action-btn.local {
+      color: #f97316;
+      background: rgba(249, 115, 22, 0.1);
+      border-color: rgba(249, 115, 22, 0.3);
+    }
+    .card-action-btn.local:hover {
+      background: rgba(249, 115, 22, 0.2);
+      border-color: #f97316;
+    }
+    [data-theme="dark"] .card-action-btn.develop {
+      background: rgba(74, 222, 128, 0.15);
+    }
+    [data-theme="dark"] .card-action-btn.local {
+      background: rgba(249, 115, 22, 0.15);
     }
     .badge {
       padding: 6px 14px;
@@ -845,7 +916,7 @@ export function generateReport(results: ComparisonResult[]): string {
         <div class="sidebar-subtitle">Visual Regression Report</div>
       </div>
       <nav class="nav-section">
-        <div class="nav-section-title">Pages (${totalPages})</div>
+        <div class="nav-section-title"><span class="nav-title-text">Pages</span><span class="nav-title-count"> (${totalPages})</span></div>
         ${navItems}
       </nav>
     </aside>
@@ -881,7 +952,7 @@ export function generateReport(results: ComparisonResult[]): string {
               Comparing Environments
             </div>
             <div class="env-row">
-              <span class="env-label dev">DEV</span>
+              <span class="env-label develop">DEVELOP</span>
               <a href="${devUrl}" target="_blank" rel="noopener noreferrer" class="env-url">${devUrl}</a>
             </div>
             <div class="env-row">
@@ -1025,6 +1096,504 @@ export function generateReport(results: ComparisonResult[]): string {
   console.log(`  ${style.muted(`Pages: ${totalPages} | Interactions: ${totalInteractions} | Avg Diff: ${avgDiff.toFixed(2)}%`)}\n`);
   
   return outputPath;
+}
+
+/**
+ * Generate main index page showing all available app reports
+ */
+export function generateMainIndex(): string {
+  const reportsBaseDir = "reports";
+  
+  if (!fs.existsSync(reportsBaseDir)) {
+    fs.mkdirSync(reportsBaseDir, { recursive: true });
+  }
+  
+  log.header("Generating Main Index");
+  
+  // Scan for available reports
+  interface AppReport {
+    appType: string;
+    config: AppConfig;
+    reportPath: string;
+    hasReport: boolean;
+    lastModified?: Date;
+    stats?: {
+      pages: number;
+      size: string;
+    };
+  }
+  
+  const appReports: AppReport[] = APP_LIST.map(appType => {
+    const config = APPS[appType];
+    const reportDir = path.join(reportsBaseDir, `cariloop-${appType}`);
+    const reportPath = path.join(reportDir, "index.html");
+    const hasReport = fs.existsSync(reportPath);
+    
+    let lastModified: Date | undefined;
+    let stats: { pages: number; size: string } | undefined;
+    
+    if (hasReport) {
+      const stat = fs.statSync(reportPath);
+      lastModified = stat.mtime;
+      stats = {
+        pages: 0,
+        size: formatBytes(stat.size),
+      };
+      
+      // Count screenshots to estimate pages
+      const screenshotsDir = path.join("screenshots", `cariloop-${appType}`, "develop");
+      if (fs.existsSync(screenshotsDir)) {
+        const files = fs.readdirSync(screenshotsDir).filter(f => f.endsWith(".png") && !f.includes("__"));
+        stats.pages = files.length;
+      }
+    }
+    
+    return {
+      appType,
+      config,
+      reportPath: `cariloop-${appType}/index.html`,
+      hasReport,
+      lastModified,
+      stats,
+    };
+  });
+  
+  const availableReports = appReports.filter(r => r.hasReport);
+  const generatedAt = new Date().toLocaleString();
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cariloop UI Police - Reports Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f1f5f9;
+      --border-color: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --card-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --hover-shadow: 0 10px 40px rgba(102, 126, 234, 0.15);
+    }
+    
+    [data-theme="dark"] {
+      --bg-primary: #0f0f14;
+      --bg-secondary: #1a1a24;
+      --bg-tertiary: #252535;
+      --border-color: #2a2a3a;
+      --text-primary: #e0e0e0;
+      --text-secondary: #888888;
+      --text-muted: #666666;
+      --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      --hover-shadow: 0 10px 40px rgba(102, 126, 234, 0.25);
+    }
+    
+    body {
+      font-family: "Google Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .header-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .header-brand svg {
+      width: 48px;
+      height: 48px;
+      color: #667eea;
+    }
+    .header-title {
+      font-size: 36px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-subtitle {
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    .header-stats {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+    }
+    .header-stat {
+      text-align: center;
+    }
+    .header-stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #667eea;
+    }
+    .header-stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    /* Theme Toggle */
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      box-shadow: var(--card-shadow);
+    }
+    .theme-toggle:hover {
+      border-color: #667eea;
+    }
+    .theme-toggle svg {
+      width: 20px;
+      height: 20px;
+      color: var(--text-secondary);
+    }
+    
+    /* Apps Grid */
+    .apps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    
+    /* App Card */
+    .app-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: block;
+      box-shadow: var(--card-shadow);
+    }
+    .app-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--hover-shadow);
+      border-color: #667eea;
+    }
+    .app-card.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .app-card-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 24px;
+      position: relative;
+    }
+    .app-card-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .app-card-icon svg {
+      width: 24px;
+      height: 24px;
+      color: white;
+    }
+    .app-card-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 4px;
+    }
+    .app-card-folder {
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+    .app-card-status {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .app-card-status.available {
+      background: rgba(74, 222, 128, 0.3);
+      color: #4ade80;
+    }
+    .app-card-status.pending {
+      background: rgba(148, 163, 184, 0.3);
+      color: rgba(255,255,255,0.7);
+    }
+    .app-card-body {
+      padding: 20px 24px;
+    }
+    .app-card-stats {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+    .app-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-stat svg {
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+    }
+    .app-stat-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .app-stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .app-card-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .app-card-meta svg {
+      width: 14px;
+      height: 14px;
+    }
+    .app-card-action {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .app-card-action-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: #667eea;
+    }
+    .app-card-action svg {
+      width: 16px;
+      height: 16px;
+      color: #667eea;
+      transition: transform 0.2s;
+    }
+    .app-card:hover .app-card-action svg {
+      transform: translateX(4px);
+    }
+    
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-color);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+    </svg>
+    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+  
+  <div class="container">
+    <header class="header">
+      <div class="header-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        <h1 class="header-title">Cariloop UI Police</h1>
+      </div>
+      <p class="header-subtitle">Visual Regression Testing Dashboard</p>
+      <div class="header-stats">
+        <div class="header-stat">
+          <div class="header-stat-value">${availableReports.length}</div>
+          <div class="header-stat-label">Reports Available</div>
+        </div>
+        <div class="header-stat">
+          <div class="header-stat-value">${APP_LIST.length}</div>
+          <div class="header-stat-label">Total Apps</div>
+        </div>
+      </div>
+    </header>
+    
+    <div class="apps-grid">
+      ${appReports.map(app => {
+        const iconSvg = getAppIcon(app.appType);
+        if (app.hasReport) {
+          return `
+          <a href="${app.reportPath}" class="app-card">
+            <div class="app-card-header">
+              <span class="app-card-status available">Available</span>
+              <div class="app-card-icon">${iconSvg}</div>
+              <div class="app-card-name">${app.config.displayName}</div>
+              <div class="app-card-folder">cariloop-${app.appType}</div>
+            </div>
+            <div class="app-card-body">
+              <div class="app-card-stats">
+                <div class="app-stat">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                  <span class="app-stat-value">${app.stats?.pages ?? 0}</span>
+                  <span class="app-stat-label">pages</span>
+                </div>
+                <div class="app-stat">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span class="app-stat-value">${app.stats?.size ?? '0 B'}</span>
+                  <span class="app-stat-label">size</span>
+                </div>
+              </div>
+              <div class="app-card-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                ${app.lastModified ? `Updated ${formatTimeAgo(app.lastModified)}` : 'Unknown'}
+              </div>
+              <div class="app-card-action">
+                <span class="app-card-action-text">View Report</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </div>
+            </div>
+          </a>`;
+        } else {
+          return `
+          <div class="app-card disabled">
+            <div class="app-card-header">
+              <span class="app-card-status pending">No Report</span>
+              <div class="app-card-icon">${iconSvg}</div>
+              <div class="app-card-name">${app.config.displayName}</div>
+              <div class="app-card-folder">cariloop-${app.appType}</div>
+            </div>
+            <div class="app-card-body">
+              <div class="app-card-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Run tests to generate report
+              </div>
+            </div>
+          </div>`;
+        }
+      }).join('')}
+    </div>
+    
+    <footer class="footer">
+      Generated on ${generatedAt} • Cariloop UI Police v1.0
+    </footer>
+  </div>
+  
+  <script>
+    // Theme management
+    function initTheme() {
+      const saved = localStorage.getItem('theme');
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        updateThemeIcon(saved);
+      }
+    }
+    
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateThemeIcon(next);
+    }
+    
+    function updateThemeIcon(theme) {
+      const sunIcon = document.querySelector('.sun-icon');
+      const moonIcon = document.querySelector('.moon-icon');
+      if (theme === 'dark') {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+      } else {
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+      }
+    }
+    
+    initTheme();
+  </script>
+</body>
+</html>`;
+
+  const outputPath = path.join(reportsBaseDir, "index.html");
+  fs.writeFileSync(outputPath, html, "utf-8");
+  
+  log.fileSaved(outputPath, "Main Index");
+  console.log(`  ${style.muted(`Available Reports: ${availableReports.length}/${APP_LIST.length}`)}\n`);
+  
+  return outputPath;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+function getAppIcon(appType: string): string {
+  const icons: Record<string, string> = {
+    admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+    plan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+    coach: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    auth: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  };
+  return icons[appType] ?? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>';
 }
 
 // Allow running standalone
