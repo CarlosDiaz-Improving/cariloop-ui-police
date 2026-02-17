@@ -13,7 +13,9 @@ export interface Interaction {
   /** CSS selector for the element to interact with */
   selector: string;
   /** Type of interaction */
-  action: "click" | "hover";
+  action: "click" | "hover" | "fill";
+  /** Data for fill actions: array of {selector, value} pairs to fill before screenshot */
+  fillData?: Array<{ selector: string; value: string }>;
   /** Optional: Wait for this selector to appear after the interaction */
   waitForSelector?: string;
   /** Optional: Additional delay after interaction (ms) */
@@ -22,6 +24,8 @@ export interface Interaction {
   pageFilter?: RegExp;
   /** Optional: Close/reset after capture (click same element or press Escape) */
   closeAfter?: "click" | "escape" | "none";
+  /** Optional: click a submit button after filling (for validation-error captures) */
+  clickAfterFill?: string;
 }
 
 /**
@@ -51,6 +55,8 @@ export interface AppConfig {
   interactionGroups: InteractionGroup[];
   /** Function to get all interactions flattened */
   getAllInteractions: () => Interaction[];
+  /** If true, skip login before capturing pages (e.g., auth app has public pages) */
+  skipLogin?: boolean;
 }
 
 /**

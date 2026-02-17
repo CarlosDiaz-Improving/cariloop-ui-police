@@ -70,6 +70,33 @@ export async function executeInteraction(
       await element.click({ timeout: 5000 });
     } else if (interaction.action === "hover") {
       await element.hover({ timeout: 5000 });
+    } else if (interaction.action === "fill" && interaction.fillData) {
+      // Fill form fields sequentially
+      for (const { selector, value } of interaction.fillData) {
+        try {
+          await page.fill(selector, value);
+          await page.waitForTimeout(100);
+        } catch (fillErr) {
+          // Try click + type as fallback for non-standard inputs
+          try {
+            const input = await page.$(selector);
+            if (input) {
+              await input.click();
+              await input.type(value, { delay: 20 });
+            }
+          } catch {
+            // Skip this field if it can't be filled
+          }
+        }
+      }
+      // Optionally click a button after filling (e.g., submit for validation errors)
+      if (interaction.clickAfterFill) {
+        try {
+          await page.click(interaction.clickAfterFill, { timeout: 3000 });
+        } catch {
+          // Button might not exist or be disabled
+        }
+      }
     }
 
     // Wait for expected result

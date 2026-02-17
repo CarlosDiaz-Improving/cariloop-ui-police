@@ -1599,11 +1599,12 @@ function getAppIcon(appType: string): string {
 // Allow running standalone
 if (import.meta.main) {
   const { compareScreenshots } = await import("./compare");
-  const { getScreenshotsDir } = await import("./config");
+  const { environments, getScreenshotsDir } = await import("./config");
   
-  const screenshotsDevDir = path.join(getScreenshotsDir(), "dev");
+  const [env1] = environments;
+  const screenshotsDevDir = path.join(getScreenshotsDir(), env1!.name);
   if (!fs.existsSync(screenshotsDevDir)) {
-    log.error("No screenshots found. Run capture and compare first.");
+    log.error(`No ${env1!.name} screenshots found. Run capture and compare first.`);
     process.exit(1);
   }
   const files = fs.readdirSync(screenshotsDevDir).filter((f) => f.endsWith(".png"));

@@ -40,6 +40,7 @@ import {
 } from "./logger";
 import { log, style, symbols } from "../utils/terminal";
 import { pathToFilename, interactionFilename } from "../utils/paths";
+import { captureRegistrationFlow, getRegistrationMode, getAvailableTestUsers } from "../apps/auth/registration-flow";
 
 /**
  * Capture interactions on the current page (menus, buttons, hover states)
@@ -176,6 +177,12 @@ async function capturePages(
       const filepath = path.join(outputDir, filename);
       const appConfig = getCurrentAppConfig();
 
+      // For auth app: set introductionSeen so /register shows the form,
+      // not the onboarding intro (intro slides are captured separately in registration-flow)
+      if (appConfig.skipLogin && pagePath === "/register") {
+        await page.evaluate(() => localStorage.setItem("cariloop:introductionSeen", "true"));
+      }
+
       log.page(pagePath, pages.indexOf(pagePath) + 1, pages.length);
       
       try {
@@ -248,7 +255,25 @@ export async function captureEnvironment(
   const page = await context.newPage();
 
   try {
-    await login(page, env.baseUrl, env.name);
+    const appConfig = getCurrentAppConfig();
+    
+    if (appConfig.skipLogin) {
+      log.action("Skipping login (auth app — public pages)");
+      // Navigate to the base URL so discovery can find links
+      await page.goto(env.baseUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: timeouts.loginNavigation,
+      });
+      try {
+        await page.waitForSelector(appConfig.readySelector, {
+          timeout: timeouts.contentReady,
+        });
+      } catch {
+        // Page may not have the ready selector, continue anyway
+      }
+    } else {
+      await login(page, env.baseUrl, env.name);
+    }
 
     // Reuse already-discovered pages, or discover fresh
     let pages: string[];
@@ -262,6 +287,23 @@ export async function captureEnvironment(
     }
 
     await capturePages(page, pages, env.baseUrl, outputDir, manifest, env.name, interactionLog);
+
+    // Run registration flow for auth app if enabled
+    if (appConfig.skipLogin && appConfig.name === "auth") {
+      const regMode = getRegistrationMode();
+      if (regMode !== "disabled") {
+        const poolInfo = getAvailableTestUsers();
+        if (regMode === "full-flow") {
+          console.log(`  ${style.info(`Test user pool: ${poolInfo.available}/${poolInfo.total} available`)}\n`);
+        }
+        try {
+          await captureRegistrationFlow(page, env.baseUrl, outputDir);
+        } catch (err) {
+          log.error(`Registration flow failed: ${err}`);
+        }
+      }
+    }
+
     markEnvironmentComplete(manifest, env.name);
     return { pages, outputDir };
   } finally {

@@ -7,6 +7,7 @@ import { captureAll } from "./core/capture";
 import { compareScreenshots } from "./core/compare";
 import { generateReport, generateMainIndex } from "./core/report";
 import { 
+  environments,
   getScreenshotsDir, 
   setCurrentApp, 
   getCurrentAppConfig,
@@ -66,7 +67,8 @@ function selectApp(): AppType {
 
 function discoverPagesFromDisk(): string[] {
   const screenshotsDir = getScreenshotsDir();
-  const devDir = path.join(screenshotsDir, "dev");
+  const [env1] = environments;
+  const devDir = path.join(screenshotsDir, env1!.name);
   if (!fs.existsSync(devDir)) return [];
   const files = fs.readdirSync(devDir).filter((f) => f.endsWith(".png") && !f.includes("__"));
   return files.map((f) => "/" + f.replace(".png", "").replace(/-/g, "/"));
@@ -74,7 +76,8 @@ function discoverPagesFromDisk(): string[] {
 
 function deleteAllScreenshots(): void {
   const screenshotsDir = getScreenshotsDir();
-  const dirs = ["dev", "local", "diff"].map((d) => path.join(screenshotsDir, d));
+  const envDirs = environments.map((e) => e.name);
+  const dirs = [...envDirs, "diff"].map((d) => path.join(screenshotsDir, d));
   for (const dir of dirs) {
     if (fs.existsSync(dir)) {
       fs.rmSync(dir, { recursive: true });

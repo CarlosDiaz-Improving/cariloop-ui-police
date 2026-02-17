@@ -21,10 +21,18 @@ export async function discoverPages(page: Page): Promise<string[]> {
       })
       .filter((path): path is string => {
         if (path === null) return false;
-        // For auth app (no prefix), only capture root-level auth pages
+        // For auth app (no prefix), capture all known auth route prefixes
         if (prefix === "") {
-          return path === "/" || path.startsWith("/login") || path.startsWith("/register") || 
-                 path.startsWith("/forgot") || path.startsWith("/reset");
+          const authPrefixes = [
+            "/login", "/register", "/forgot", "/reset",
+            "/enrollment", "/disconnection", "/loading-state",
+            "/expired-link", "/expired-invite", "/choose-adventure",
+            "/new-password", "/confirm", "/case", "/logout",
+            "/pgp", "/masthead", "/mobile", "/gift-redemption",
+            "/webinar", "/share", "/verify-care", "/sign-callback",
+            "/urbansitter-coach-sso", "/event",
+          ];
+          return path === "/" || authPrefixes.some((p) => path.startsWith(p));
         }
         return path.startsWith(prefix);
       });
@@ -32,6 +40,18 @@ export async function discoverPages(page: Page): Promise<string[]> {
 
   // Deduplicate and remove fragments/query params (already handled by URL parsing)
   const unique = [...new Set(links)].sort();
+
+  // For apps with skipLogin (auth), most pages aren't linked from a single page.
+  // Always merge discovered links with the full fallback list so every configured
+  // page gets captured.
+  if (appConfig.skipLogin) {
+    const fallback = getFallbackPages();
+    const merged = [...new Set([...unique, ...fallback])].sort();
+    log.success(`Discovered ${unique.length} links, merged with ${fallback.length} fallback pages → ${merged.length} total`);
+    log.tree(merged);
+    console.log("");
+    return merged;
+  }
 
   if (unique.length === 0) {
     log.warning(`No links found, using fallback list`);

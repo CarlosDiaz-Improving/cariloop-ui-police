@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { getScreenshotsDir } from "./config";
+import { environments, getScreenshotsDir } from "./config";
 import { log, style, symbols } from "../utils/terminal";
 import { parseFilename } from "../utils/paths";
 
@@ -54,8 +54,10 @@ function getDiffStyle(pct: number): (text: string) => string {
 
 export function compareScreenshots(pages: string[]): ComparisonResult[] {
   const screenshotsDir = getScreenshotsDir();
-  const devDir = path.join(screenshotsDir, "dev");
-  const localDir = path.join(screenshotsDir, "local");
+  // Use actual environment names from config (e.g. "develop", "local")
+  const [env1, env2] = environments;
+  const devDir = path.join(screenshotsDir, env1!.name);
+  const localDir = path.join(screenshotsDir, env2!.name);
   const diffDir = path.join(screenshotsDir, "diff");
 
   if (!fs.existsSync(diffDir)) fs.mkdirSync(diffDir, { recursive: true });
@@ -159,9 +161,10 @@ export function compareScreenshots(pages: string[]): ComparisonResult[] {
 // Allow running standalone
 if (import.meta.main) {
   // Discover pages from existing dev screenshots
-  const devDir = path.join(getScreenshotsDir(), "dev");
+  const [env1] = environments;
+  const devDir = path.join(getScreenshotsDir(), env1!.name);
   if (!fs.existsSync(devDir)) {
-    log.error("No dev screenshots found. Run capture first.");
+    log.error(`No ${env1!.name} screenshots found. Run capture first.`);
     process.exit(1);
   }
   const files = fs.readdirSync(devDir).filter((f) => f.endsWith(".png"));
