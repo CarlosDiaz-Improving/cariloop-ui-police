@@ -1525,7 +1525,7 @@ export function generateMainIndex(): string {
     </div>
     
     <footer class="footer">
-      Generated on ${generatedAt} • Cariloop UI Police v1.0
+      Generated on ${generatedAt} • Cariloop UI Police v${projectConfig.version}
     </footer>
   </div>
   

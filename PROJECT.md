@@ -181,7 +181,7 @@ The single source of truth for all **non-sensitive** settings. Located at the pr
 
 ```ts
 const config: ProjectConfig = {
-  version: "1.0.0",
+  version: "2.0.0",
 
   environments: [
     { name: "develop", baseUrl: "https://dev-plan.cariloop.com" },
@@ -350,7 +350,7 @@ A single run covers **one app × one environment**. If a previous run for the sa
   "duration": "2m 15s",
   "trigger": "manual",
   "status": "completed",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "pageCount": 12,
   "interactionCount": 5,
   "screenshots": [

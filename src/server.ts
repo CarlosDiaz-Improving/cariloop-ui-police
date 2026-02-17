@@ -20,7 +20,7 @@ import {
   getCurrentApp,
   getAllApps,
 } from "./core/config";
-import { listRuns, getLatestRun, loadRunManifest, getAppDir } from "./core/runs";
+import { listRuns, getLatestRun, loadRunManifest, getAppDir, getDiffPairDir } from "./core/runs";
 import {
   listScripts,
   getScriptContent,
@@ -28,9 +28,11 @@ import {
   updateScript,
   deleteScript,
   runScript,
+  stopRecording,
+  isCodegenRunning,
 } from "./core/recorder";
 import { captureAll } from "./core/capture";
-import { compareScreenshots } from "./core/compare";
+import { compareScreenshots, compareCrossEnv, compareCrossRun } from "./core/compare";
 import { generateReport, generateMainIndex } from "./core/report";
 import {
   addClient,
@@ -401,9 +403,10 @@ async function handleCodegen(req: Request): Promise<Response> {
   startIntercepting();
   broadcastStatus({ phase: "codegen", app, env });
 
+  const { startRecording, saveRecordedScript } = await import("./core/recorder");
+
   (async () => {
     try {
-      const { startRecording, saveRecordedScript } = await import("./core/recorder");
       broadcastLog(`Starting Playwright Codegen for ${app} (${env})...`);
       broadcastLog("A browser window will open. Interact with it, then close when done.");
 
@@ -424,6 +427,89 @@ async function handleCodegen(req: Request): Promise<Response> {
   })();
 
   return jsonResponse({ message: "Codegen started", app, env });
+}
+
+/** POST /api/codegen/stop — kill the active codegen process */
+async function handleCodegenStop(_req: Request): Promise<Response> {
+  if (currentPhase !== "codegen") return errorResponse("No codegen process running", 400);
+  stopRecording();
+  broadcastDone({ success: false, phase: "codegen", detail: "Recording stopped by user" });
+  isRunning = false;
+  currentPhase = "idle";
+  stopIntercepting();
+  return jsonResponse({ message: "Codegen stopped" });
+}
+
+/** POST /api/compare/custom — compare two specific runs */
+async function handleCompareCustom(req: Request): Promise<Response> {
+  const body = (await req.json()) as {
+    app: string;
+    env1: string;
+    runId1: string;
+    env2: string;
+    runId2: string;
+  };
+
+  if (!body.app || !body.env1 || !body.runId1 || !body.env2 || !body.runId2) {
+    return errorResponse("Missing required fields: app, env1, runId1, env2, runId2");
+  }
+
+  // Determine diff label and check if it already exists
+  const isCrossEnv = body.env1 !== body.env2;
+  const diffLabel = isCrossEnv
+    ? `${body.env1}-vs-${body.env2}`
+    : `${body.env1}-${body.runId1}-vs-${body.runId2}`;
+  const diffDir = getDiffPairDir(body.app, diffLabel);
+
+  // Check if diffs already exist (has .png files in it)
+  if (existsSync(diffDir)) {
+    const existing = readdirSync(diffDir).filter(f => f.endsWith(".png"));
+    if (existing.length > 0) {
+      return jsonResponse({
+        message: "Diff already exists",
+        cached: true,
+        diffLabel,
+        diffDir,
+        fileCount: existing.length,
+      });
+    }
+  }
+
+  // Run the comparison (blocking but fast — it's just pixel math)
+  if (isRunning) return errorResponse("A process is already running", 409);
+
+  setCurrentApp(body.app);
+  isRunning = true;
+  currentPhase = "comparing";
+
+  startIntercepting();
+  broadcastStatus({ phase: "comparing", app: body.app });
+
+  (async () => {
+    try {
+      let results;
+      if (isCrossEnv) {
+        results = compareCrossEnv(body.app, body.env1, body.runId1, body.env2, body.runId2);
+      } else {
+        results = compareCrossRun(body.app, body.env1, body.runId1, body.runId2);
+      }
+      const reportPath = generateReport(results);
+      generateMainIndex();
+      broadcastDone({
+        success: true,
+        phase: "compare",
+        detail: `${results.length} pages compared (${diffLabel}), report: ${reportPath}`,
+      });
+    } catch (err: any) {
+      broadcastDone({ success: false, phase: "compare", detail: err.message });
+    } finally {
+      isRunning = false;
+      currentPhase = "idle";
+      stopIntercepting();
+    }
+  })();
+
+  return jsonResponse({ message: "Custom comparison started", diffLabel, cached: false });
 }
 
 // ============================================
@@ -477,6 +563,8 @@ const server = Bun.serve({
     if (url.pathname === "/api/report" && req.method === "POST") return handleReport(req);
     if (url.pathname === "/api/pipeline" && req.method === "POST") return handlePipeline(req);
     if (url.pathname === "/api/codegen" && req.method === "POST") return handleCodegen(req);
+    if (url.pathname === "/api/codegen/stop" && req.method === "POST") return handleCodegenStop(req);
+    if (url.pathname === "/api/compare/custom" && req.method === "POST") return handleCompareCustom(req);
 
     return new Response("Not found", { status: 404 });
   },

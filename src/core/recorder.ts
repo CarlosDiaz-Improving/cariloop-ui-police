@@ -57,6 +57,32 @@ export function listScripts(appName: string): CustomScript[] {
   return loadRegistry(appName);
 }
 
+// ============================================
+// CODEGEN PROCESS TRACKING
+// ============================================
+
+let activeCodegenProcess: ReturnType<typeof spawn> | null = null;
+
+/**
+ * Check if a codegen process is currently active
+ */
+export function isCodegenRunning(): boolean {
+  return activeCodegenProcess !== null;
+}
+
+/**
+ * Stop the currently running codegen process
+ */
+export function stopRecording(): void {
+  if (activeCodegenProcess) {
+    try {
+      activeCodegenProcess.kill("SIGTERM");
+    } catch { /* already dead */ }
+    activeCodegenProcess = null;
+    log.warning("Recording stopped by user");
+  }
+}
+
 /**
  * Start the Playwright codegen recorder for a specific app and environment.
  * This spawns an interactive browser session — the user interacts with it
@@ -79,34 +105,36 @@ export async function startRecording(
   console.log(`  ${style.url(targetUrl)}`);
   console.log(`  ${style.muted("Interact with the browser. Close it when done.")}\n`);
 
-  try {
-    // Use Playwright codegen with --target=javascript
-    // The output goes to stdout; we capture it
-    const output = execSync(
-      `bunx playwright codegen --target=javascript "${targetUrl}"`,
-      {
-        encoding: "utf-8",
-        stdio: ["inherit", "pipe", "inherit"],
-        timeout: 600_000, // 10-minute max session
+  return new Promise<string | null>((resolve) => {
+    const child = spawn("bunx", ["playwright", "codegen", "--target=javascript", targetUrl], {
+      stdio: ["inherit", "pipe", "pipe"],
+    });
+
+    activeCodegenProcess = child;
+    let stdout = "";
+
+    child.stdout?.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    child.on("close", () => {
+      activeCodegenProcess = null;
+      const trimmed = stdout.trim();
+      if (trimmed.length > 0) {
+        log.success("Recording captured successfully");
+        resolve(trimmed);
+      } else {
+        log.warning("Recording session ended without captured actions");
+        resolve(null);
       }
-    );
+    });
 
-    if (output && output.trim().length > 0) {
-      log.success("Recording captured successfully");
-      return output.trim();
-    }
-
-    log.warning("No actions were recorded");
-    return null;
-  } catch (err: any) {
-    // User closing the browser causes a non-zero exit — that's expected
-    if (err.stdout && err.stdout.trim().length > 0) {
-      log.success("Recording captured successfully");
-      return err.stdout.trim();
-    }
-    log.warning("Recording session ended without captured actions");
-    return null;
-  }
+    child.on("error", () => {
+      activeCodegenProcess = null;
+      log.warning("Recording session ended without captured actions");
+      resolve(null);
+    });
+  });
 }
 
 /**
