@@ -80,6 +80,13 @@ cariloop-ui-police/
 │
 └── src/
     ├── index.ts                # CLI entry point — app selection, run mode menu
+    ├── server.ts               # Web dashboard — Bun.serve() HTTP + WebSocket server
+    │
+    ├── ui/
+    │   └── dashboard.html      # Self-contained HTML dashboard (no framework)
+    │
+    ├── bin/
+    │   └── codegen.ts          # Standalone Playwright Codegen CLI
     │
     ├── types/
     │   └── config.ts           # All TypeScript interfaces (ProjectConfig, RunManifest, etc.)
@@ -88,14 +95,15 @@ cariloop-ui-police/
     │   ├── config.ts           # Runtime config loader — reads ui-police.config.ts + .env
     │   ├── auth.ts             # Playwright login flow (credentials from .env)
     │   ├── discover.ts         # Page discovery via link crawling
-    │   ├── capture.ts          # Screenshot pipeline — one run, all environments
+    │   ├── capture.ts          # Screenshot pipeline + codegen script execution
     │   ├── compare.ts          # Pixel diff engine — cross-env & cross-run modes
     │   ├── report.ts           # HTML report generator (self-contained, base64 images)
     │   ├── runs.ts             # Run ID generation, directory creation, manifest I/O
     │   ├── progress.ts         # Resume/retry tracking per environment
     │   ├── interactions.ts     # UI interaction executor (click, hover, fill)
     │   ├── logger.ts           # Interaction success/failure log
-    │   └── recorder.ts         # Playwright code-gen recorder integration
+    │   ├── recorder.ts         # Playwright codegen recorder + script execution
+    │   └── log-stream.ts       # Console interceptor for WebSocket log streaming
     │
     ├── utils/
     │   ├── paths.ts            # Filename helpers (page slug, parse/build filenames)
@@ -393,6 +401,8 @@ The main capture engine. Flow:
    - Registers each screenshot in the run manifest
    - Finalizes the run for that environment
 
+3. After all environments are captured, runs any registered codegen scripts via `executeAllScripts()`
+
 Key design: **one run = one app × one environment**. If a previous run for the same app+env didn't complete, it is resumed automatically.
 
 ### core/compare.ts — Pixel Diffing
@@ -451,7 +461,7 @@ Executes UI interactions (click menus, open dialogs, hover elements):
 ### core/progress.ts — Resume Tracking
 
 Tracks which pages/environments have been captured for resume capability:
-- Persists a `progress.json` in the screenshots directory
+- Persists a `progress.json` in `output/captures/{app}/`
 - `isPageCaptured()` / `markPageCaptured()` — per-page tracking
 - `isEnvironmentComplete()` / `markEnvironmentComplete()` — per-env tracking
 - `isInteractionCaptured()` / `markInteractionCaptured()` — per-interaction tracking
@@ -464,12 +474,60 @@ Logs interaction execution results:
 - Failure report generation
 - Summary statistics
 
-### core/recorder.ts — Playwright Recorder
+### core/recorder.ts — Playwright Recorder + Script Execution
 
 Integration with Playwright's code generation:
-- Records user interactions as replayable scripts
-- Saves scripts to `captures/scripts/{app}/`
-- Script registry for managing recorded scripts
+- `startRecording(app, env)` — launches Playwright codegen, captures generated code
+- `saveRecordedScript(app, code, name)` — saves script to `output/captures/scripts/{app}/`
+- `listScripts(app)` / `hasScripts(app)` — query the script registry
+- `runScript(app, name)` — execute a saved script
+- `executeAllScripts(app)` — run all registered scripts (called by capture pipeline)
+
+### core/log-stream.ts — WebSocket Log Streaming
+
+Intercepts `console.log` / `console.error` / `console.warn` and forwards output to connected WebSocket clients:
+- `startIntercepting()` / `stopIntercepting()` — toggle console interception
+- `broadcastLog(line)` — send a log line to all clients
+- `broadcastStatus(status)` — send phase/progress updates
+- `broadcastDone(result)` — send completion events
+- `addClient(ws)` / `removeClient(ws)` — client connection management
+
+### server.ts — Web Dashboard Server
+
+`Bun.serve()` HTTP + WebSocket server providing a browser-based control panel:
+
+**API routes:**
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/` | GET | Serves the dashboard HTML |
+| `/api/config` | GET | Returns apps, environments, version |
+| `/api/runs` | GET | List runs (filter by `?app=`) |
+| `/api/scripts` | GET | List recorded scripts |
+| `/api/status` | GET | Current running state |
+| `/api/capture` | POST | Start capture for an app |
+| `/api/compare` | POST | Run comparison |
+| `/api/report` | POST | Generate report |
+| `/api/pipeline` | POST | Full capture → compare → report |
+| `/api/codegen` | POST | Start Playwright codegen |
+| `/ws` | WS | Real-time log streaming |
+
+Long-running operations (capture, pipeline) return immediately and stream progress via WebSocket.
+
+### ui/dashboard.html — Browser Dashboard
+
+Self-contained HTML file (inline CSS + JS, no framework):
+- **Left panel** — app selector, action buttons, scripts list, run history
+- **Right panel** — terminal-style log viewer with WebSocket connection
+- Dark theme matching the report style (orange accents, monospace log)
+- Auto-reconnect WebSocket, ANSI stripping, auto-scroll
+
+### bin/codegen.ts — Playwright Codegen CLI
+
+Standalone entry point for recording Playwright scripts:
+- Accepts `[app] [env] [name]` as CLI arguments
+- Falls back to interactive prompts if args missing
+- Saves scripts to `output/captures/scripts/{app}/`
+- Scripts are auto-executed during the capture pipeline
 
 ---
 

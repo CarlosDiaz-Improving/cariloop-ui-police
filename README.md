@@ -76,6 +76,10 @@ See [PROJECT.md → Configuration System](./PROJECT.md#configuration-system) for
 
 ## Usage
 
+Two entry points — both coexist:
+
+### CLI (Terminal)
+
 ```bash
 bun run start
 ```
@@ -83,8 +87,31 @@ bun run start
 The interactive CLI will prompt you to:
 
 1. **Select an app** to test
-2. **Choose a run mode** — fresh, resume, retry failed, or compare-only
+2. **Choose a run mode** — fresh, resume, retry failed, compare-only, or record
 3. The pipeline runs automatically: **capture → compare → report**
+
+### Web Dashboard
+
+```bash
+bun run ui
+```
+
+Opens a browser-based control panel at `http://localhost:3737` with:
+
+- **Left panel** — app selector, action buttons (Pipeline, Capture, Compare, Report, Codegen), recorded scripts list, run history
+- **Right panel** — real-time terminal log streamed via WebSocket
+
+The dashboard can trigger all the same operations as the CLI. Set a custom port with `UI_POLICE_PORT=4000 bun run ui`.
+
+### Playwright Codegen
+
+```bash
+bun run codegen              # interactive prompts
+bun run codegen auth         # specify app
+bun run codegen auth develop # specify app + env
+```
+
+Records a Playwright script and saves it to `output/captures/scripts/{app}/`. Registered scripts are **automatically executed** during the capture pipeline after page screenshots.
 
 ### Run Modes
 
@@ -125,13 +152,15 @@ See [PROJECT.md → Output Directory](./PROJECT.md#output-directory) for the ful
 
 ## Features
 
-- **Multi-environment** — capture all configured environments in a single run
+- **Web dashboard** — browser-based control panel with real-time log streaming (Bun.serve + WebSocket)
+- **CLI + UI** — both entry points coexist; use whichever you prefer
+- **Playwright Codegen** — record scripts via `bun run codegen`, auto-executed during captures
+- **Multi-environment** — capture all configured environments in a single session
 - **Resume & retry** — interrupted runs can be resumed; failed interactions can be retried individually
 - **Interaction capture** — menus, dialogs, hover states, form validation screenshots
-- **Cross-env comparison** — diff develop vs local within the same run
+- **Cross-env comparison** — diff develop vs local (latest completed runs)
 - **Cross-run comparison** — diff today's run vs a previous run (historical regression)
 - **HTML diff reports** — side-by-side with diff overlay, percentage badges, and navigation sidebar
-- **Playwright recorder** — record custom interaction scripts for replay
 
 ## Development
 
@@ -140,9 +169,15 @@ See [PROJECT.md → Output Directory](./PROJECT.md#output-directory) for the ful
 bunx tsc --noEmit
 
 # Run individual modules
-bun run src/core/capture.ts
-bun run src/core/compare.ts
-bun run src/core/report.ts
+bun run capture
+bun run compare
+bun run report
+
+# Start the web dashboard
+bun run ui
+
+# Record a script
+bun run codegen
 ```
 
 ## Project Structure
@@ -150,6 +185,11 @@ bun run src/core/report.ts
 ```
 src/
   index.ts              # CLI entry point — app selection, run mode menu
+  server.ts             # Web dashboard — Bun.serve() + WebSocket
+  ui/
+    dashboard.html      # Self-contained HTML dashboard (no framework)
+  bin/
+    codegen.ts          # Standalone Playwright Codegen CLI
   types/config.ts       # All TypeScript interfaces
   core/
     config.ts           # Runtime config (ui-police.config.ts + .env)
@@ -162,7 +202,8 @@ src/
     interactions.ts     # UI interaction executor
     progress.ts         # Resume tracking
     logger.ts           # Interaction logging
-    recorder.ts         # Playwright recorder
+    recorder.ts         # Playwright recorder + script execution
+    log-stream.ts       # Console interceptor for WebSocket streaming
   utils/
     paths.ts            # Filename conventions
     terminal.ts         # Styled CLI output

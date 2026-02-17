@@ -8,7 +8,7 @@
 import type { ProjectConfig } from "./src/types/config";
 
 const config: ProjectConfig = {
-  version: "1.0.0",
+  version: "2.0.0",
 
   // ── Environments ────────────────────────────────────────────────
   // Order matters: the capture pipeline runs them sequentially.

@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI Police — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* Theme Variables — matches report.ts exactly */
+  :root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+    --bg-header: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --border-color: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --text-header: #ffffff;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --hover-bg: #f1f5f9;
+    --env-box-bg: rgba(255,255,255,0.15);
+    --stat-bg: rgba(255,255,255,0.2);
+    --scrollbar-track: #f1f5f9;
+    --scrollbar-thumb: #cbd5e1;
+    --topbar-bg: #ffffff;
+    --topbar-border: #e2e8f0;
+    --accent: #667eea;
+    --terminal-bg: #1e293b;
+    --terminal-text: #e2e8f0;
+  }
+
+  [data-theme="dark"] {
+    --bg-primary: #0f0f14;
+    --bg-secondary: #1a1a24;
+    --bg-tertiary: #252535;
+    --bg-header: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    --border-color: #2a2a3a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #888888;
+    --text-muted: #666666;
+    --text-header: #ffffff;
+    --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    --hover-bg: #252535;
+    --env-box-bg: rgba(0,0,0,0.3);
+    --stat-bg: rgba(255,255,255,0.08);
+    --scrollbar-track: #1a1a24;
+    --scrollbar-thumb: #333333;
+    --topbar-bg: #1a1a24;
+    --topbar-border: #2a2a3a;
+    --accent: #667eea;
+    --terminal-bg: #0a0c12;
+    --terminal-text: #c8d0e0;
+  }
+
+  body {
+    font-family: "Google Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* SVG Icons */
+  .icon { width: 18px; height: 18px; vertical-align: middle; }
+  .icon-sm { width: 14px; height: 14px; vertical-align: middle; }
+
+  /* ── TOP BAR (matches report) ── */
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--topbar-bg);
+    border-bottom: 1px solid var(--topbar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .topbar-brand svg {
+    width: 24px;
+    height: 24px;
+    color: var(--accent);
+  }
+
+  .topbar-brand-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+
+  .topbar-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-color);
+  }
+
+  .topbar-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .topbar-version {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .topbar-btn:hover {
+    border-color: var(--accent);
+    background: var(--hover-bg);
+  }
+
+  .topbar-btn svg {
+    width: 18px;
+    height: 18px;
+    color: var(--text-secondary);
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(74, 222, 128, 0.15);
+    color: #22c55e;
+  }
+
+  .status-pill.running {
+    background: rgba(102, 126, 234, 0.15);
+    color: var(--accent);
+  }
+
+  .status-pill .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .status-pill.running .dot {
+    animation: pulse 1.2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .ws-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .ws-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #dc2626;
+  }
+
+  .ws-dot.connected { background: #22c55e; }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: 100vh;
+    padding-top: 56px;
+  }
+
+  /* ── SIDEBAR (matches report sidebar) ── */
+  .sidebar {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: all 0.3s;
+  }
+
+  .sidebar-header {
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .sidebar-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .sidebar-subtitle {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .nav-section {
+    padding: 12px 8px;
+  }
+
+  .nav-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 8px;
+    margin-bottom: 4px;
+  }
+
+  /* ── SELECT ── */
+  .select-wrap {
+    padding: 0 8px;
+    margin-bottom: 4px;
+  }
+
+  .select-wrap select {
+    width: 100%;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: "Google Sans", -apple-system, sans-serif;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .select-wrap select:focus {
+    border-color: var(--accent);
+  }
+
+  /* ── ACTION BUTTONS ── */
+  .btn-group {
+    padding: 0 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: "Google Sans", -apple-system, sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn:hover { border-color: var(--accent); background: var(--hover-bg); }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn:disabled:hover { border-color: var(--border-color); background: var(--bg-tertiary); }
+
+  .btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--text-secondary);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border-color: transparent;
+    font-weight: 600;
+  }
+
+  .btn-primary:hover { opacity: 0.9; border-color: transparent; }
+  .btn-primary svg { color: rgba(255,255,255,0.9); }
+
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  /* ── ITEMS LIST (scripts, runs) ── */
+  .items-list {
+    padding: 0 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .item-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    font-size: 12px;
+    transition: background 0.2s;
+  }
+
+  .item-card:hover { background: var(--hover-bg); }
+
+  .item-name {
+    color: var(--accent);
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .item-meta {
+    color: var(--text-muted);
+    font-size: 10px;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .badge-green { background: rgba(74, 222, 128, 0.15); color: #22c55e; }
+  .badge-yellow { background: rgba(250, 204, 21, 0.15); color: #ca8a04; }
+  .badge-red { background: rgba(248, 113, 113, 0.15); color: #dc2626; }
+  .badge-muted { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); }
+  .badge-accent { background: rgba(102, 126, 234, 0.15); color: var(--accent); }
+
+  [data-theme="dark"] .badge-green { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+  [data-theme="dark"] .badge-yellow { background: rgba(250, 204, 21, 0.2); color: #facc15; }
+  [data-theme="dark"] .badge-red { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+  [data-theme="dark"] .badge-accent { background: rgba(102, 126, 234, 0.2); color: #818cf8; }
+
+  .empty-state {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 8px 12px;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .main-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HERO HEADER (matches report header) ── */
+  .hero {
+    background: var(--bg-header);
+    margin: 16px 20px 0;
+    border-radius: 16px;
+    padding: 28px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 32px;
+    flex-shrink: 0;
+  }
+
+  .hero-left { flex: 1; }
+
+  .hero-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-header);
+    margin-bottom: 16px;
+  }
+
+  .hero .summary {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .hero .stat {
+    background: var(--stat-bg);
+    padding: 12px 20px;
+    border-radius: 12px;
+    min-width: 110px;
+    backdrop-filter: blur(10px);
+  }
+
+  .stat-value { font-size: 24px; font-weight: bold; color: var(--text-header); }
+  .stat-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; }
+
+  .hero-right { min-width: 280px; }
+
+  .env-box {
+    background: var(--env-box-bg);
+    border-radius: 12px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+  }
+
+  .env-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 12px;
+  }
+
+  .env-title svg { width: 16px; height: 16px; }
+
+  .env-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .env-row:last-child { border-bottom: none; }
+
+  .env-label {
+    font-size: 11px;
+    font-weight: 700;
+    width: 70px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .env-label.develop { background: rgba(74, 222, 128, 0.3); color: #4ade80; }
+  .env-label.local { background: rgba(249, 115, 22, 0.3); color: #fb923c; }
+
+  .env-url {
+    font-size: 12px;
+    color: rgba(255,255,255,0.9);
+    word-break: break-all;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  }
+
+  /* ── TERMINAL ── */
+  .terminal-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 16px 20px 20px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow);
+    background: var(--bg-secondary);
+  }
+
+  .terminal-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .terminal-chrome-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .terminal-dots span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: block;
+  }
+
+  .terminal-dots .dot-red { background: #ff5f57; }
+  .terminal-dots .dot-yellow { background: #febc2e; }
+  .terminal-dots .dot-green { background: #28c840; }
+
+  .terminal-tab {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .terminal-tab svg { width: 14px; height: 14px; color: var(--text-muted); }
+
+  .terminal-chrome-right {
+    display: flex;
+    gap: 6px;
+  }
+
+  .terminal-action-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: "Google Sans", -apple-system, sans-serif;
+    transition: all 0.2s;
+  }
+
+  .terminal-action-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+  }
+
+  .terminal {
+    flex: 1;
+    background: var(--terminal-bg);
+    padding: 16px 20px;
+    overflow-y: auto;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--terminal-text);
+  }
+
+  .terminal .log-line { display: block; }
+  .terminal .log-error { color: #f87171; }
+  .terminal .log-warn { color: #fbbf24; }
+  .terminal .log-success { color: #4ade80; }
+  .terminal .log-info { color: #22d3ee; }
+  .terminal .log-dim { color: #64748b; }
+
+  .terminal .log-separator {
+    display: block;
+    color: #a78bfa;
+    font-weight: 700;
+    margin: 8px 0 4px;
+  }
+
+  /* ── SCRIPT ACTIONS (inline buttons on each script card) ── */
+  .item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .item-action {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 2px 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+  }
+
+  .item-action:hover { color: var(--accent); border-color: var(--border-color); }
+  .item-action.danger:hover { color: #f87171; border-color: rgba(248,113,113,0.3); }
+  .item-action svg { width: 13px; height: 13px; }
+
+  /* ── NEW SCRIPT BUTTON ── */
+  .btn-new-script {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    font-family: "Google Sans", -apple-system, sans-serif;
+  }
+
+  .btn-new-script:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-new-script svg { width: 14px; height: 14px; }
+
+  /* ── REPORTS LINKS ── */
+  .report-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+
+  .report-link:hover { background: var(--hover-bg); color: var(--accent); }
+  .report-link svg { width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; }
+  .report-link .report-name { flex: 1; font-weight: 500; }
+
+  .report-link-main {
+    border: 1px solid var(--border-color);
+    font-weight: 600;
+  }
+
+  /* ── MODAL (script editor) ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    width: 700px;
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    border-radius: 16px 16px 0 0;
+  }
+
+  .modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .modal-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .modal-close-btn:hover { color: var(--text-primary); background: var(--hover-bg); }
+
+  .modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .modal-field { display: flex; flex-direction: column; gap: 6px; }
+
+  .modal-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .modal-field input {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: "Google Sans", -apple-system, sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .modal-field input:focus { border-color: var(--accent); }
+
+  .modal-field textarea {
+    background: var(--terminal-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--terminal-text);
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    outline: none;
+    resize: vertical;
+    min-height: 280px;
+    transition: border-color 0.2s;
+  }
+
+  .modal-field textarea:focus { border-color: var(--accent); }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .modal-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: "Google Sans", -apple-system, sans-serif;
+    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .modal-btn:hover { border-color: var(--accent); }
+
+  .modal-btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .modal-btn-primary:hover { opacity: 0.9; border-color: transparent; }
+
+  .modal-btn-danger {
+    color: #f87171;
+    border-color: rgba(248,113,113,0.3);
+  }
+
+  .modal-btn-danger:hover { background: rgba(248,113,113,0.1); border-color: #f87171; }
+
+  /* Scrollbar (matches report) */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+</style>
+</head>
+<body>
+  <!-- TOP BAR (matches report topbar) -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        <span class="topbar-brand-text">Cariloop UI Police</span>
+      </div>
+      <div class="topbar-divider"></div>
+      <span class="topbar-label">Dashboard</span>
+      <span class="topbar-version" id="version">v-.-.-</span>
+    </div>
+    <div class="topbar-right">
+      <div class="ws-indicator">
+        <div class="ws-dot" id="ws-dot"></div>
+        <span id="ws-status">Disconnected</span>
+      </div>
+      <div class="status-pill" id="status-pill">
+        <span class="dot"></span>
+        <span id="status-text">Idle</span>
+      </div>
+      <button class="topbar-btn" onclick="toggleTheme()" title="Toggle theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <svg class="icon-moon" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- SIDEBAR (matches report sidebar) -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title" id="sidebar-app-name">UI Police</div>
+        <div class="sidebar-subtitle">Control Panel</div>
+      </div>
+
+      <!-- App Selection -->
+      <nav class="nav-section">
+        <div class="nav-section-title">Application</div>
+        <div class="select-wrap">
+          <select id="app-select"></select>
+        </div>
+      </nav>
+
+      <!-- Environment Selection -->
+      <nav class="nav-section">
+        <div class="nav-section-title">Environment</div>
+        <div class="select-wrap">
+          <select id="env-select"></select>
+        </div>
+      </nav>
+
+      <!-- Actions -->
+      <nav class="nav-section">
+        <div class="nav-section-title">Actions</div>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run Full Pipeline
+          </button>
+          <div class="btn-row">
+            <button class="btn" id="btn-capture" onclick="runCapture()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+              Capture
+            </button>
+            <button class="btn" id="btn-compare" onclick="runCompare()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Compare
+            </button>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btn-report" onclick="runReport()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Report
+            </button>
+            <button class="btn" id="btn-codegen" onclick="runCodegen()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              Codegen
+            </button>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btn-new-script" onclick="openScriptEditor()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Script
+            </button>
+            <button class="btn" id="btn-view-reports" onclick="openReportsIndex()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              View Reports
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Reports -->
+      <nav class="nav-section">
+        <div class="nav-section-title">Reports</div>
+        <div class="items-list" id="reports-list">
+          <div class="empty-state">No reports generated yet</div>
+        </div>
+      </nav>
+
+      <!-- Recorded Scripts -->
+      <nav class="nav-section">
+        <div class="nav-section-title">Recorded Scripts</div>
+        <div class="items-list" id="scripts-list">
+          <div class="empty-state">No scripts recorded yet</div>
+        </div>
+      </nav>
+
+      <!-- Recent Runs -->
+      <nav class="nav-section">
+        <div class="nav-section-title">Recent Runs</div>
+        <div class="items-list" id="runs-list">
+          <div class="empty-state">No runs yet</div>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <main class="main-area">
+      <!-- Hero Header (matches report gradient header) -->
+      <div class="hero" id="hero">
+        <div class="hero-left">
+          <h1 class="hero-title" id="hero-title">UI Police Dashboard</h1>
+          <div class="summary" id="hero-stats">
+            <div class="stat">
+              <div class="stat-value" id="stat-runs">0</div>
+              <div class="stat-label">Total Runs</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="stat-apps">0</div>
+              <div class="stat-label">Applications</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="stat-scripts">0</div>
+              <div class="stat-label">Scripts</div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-right" id="hero-envs"></div>
+      </div>
+
+      <!-- Terminal (card style) -->
+      <div class="terminal-wrap">
+        <div class="terminal-chrome">
+          <div class="terminal-chrome-left">
+            <div class="terminal-dots">
+              <span class="dot-red"></span>
+              <span class="dot-yellow"></span>
+              <span class="dot-green"></span>
+            </div>
+            <div class="terminal-tab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              Output
+            </div>
+          </div>
+          <div class="terminal-chrome-right">
+            <button class="terminal-action-btn" onclick="clearTerminal()">Clear</button>
+            <button class="terminal-action-btn" id="btn-autoscroll" onclick="toggleAutoscroll()">Auto-scroll: ON</button>
+          </div>
+        </div>
+        <div class="terminal" id="terminal">
+          <span class="log-dim">Waiting for connection...</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<!-- Script Editor Modal -->
+<div class="modal-overlay" id="script-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">New Script</span>
+      <button class="modal-close-btn" onclick="closeScriptEditor()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field">
+        <label>Script Name</label>
+        <input type="text" id="modal-script-name" placeholder="e.g. registration-flow" />
+      </div>
+      <div class="modal-field">
+        <label>Description</label>
+        <input type="text" id="modal-script-desc" placeholder="e.g. User registration and onboarding" />
+      </div>
+      <div class="modal-field">
+        <label>Playwright Script Code</label>
+        <textarea id="modal-script-code" placeholder="Paste your Playwright codegen output here..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn modal-btn-danger" id="modal-delete-btn" onclick="deleteCurrentScript()" style="display:none;margin-right:auto">Delete</button>
+      <button class="modal-btn" onclick="closeScriptEditor()">Cancel</button>
+      <button class="modal-btn modal-btn-primary" id="modal-save-btn" onclick="saveCurrentScript()">Save Script</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// STATE
+// ============================================
+let ws = null;
+let autoScroll = true;
+let isRunning = false;
+let configData = null;
+let editingScript = null; // null = new, string = editing name
+
+const terminal = document.getElementById('terminal');
+const appSelect = document.getElementById('app-select');
+const envSelect = document.getElementById('env-select');
+const wsDot = document.getElementById('ws-dot');
+const wsStatus = document.getElementById('ws-status');
+const statusPill = document.getElementById('status-pill');
+const statusText = document.getElementById('status-text');
+const versionEl = document.getElementById('version');
+
+// ============================================
+// THEME (matches report toggle)
+// ============================================
+function toggleTheme() {
+  const html = document.documentElement;
+  const curr = html.getAttribute('data-theme');
+  const next = curr === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeToggle(next);
+}
+
+function updateThemeToggle(theme) {
+  const sun = document.querySelector('.icon-sun');
+  const moon = document.querySelector('.icon-moon');
+  if (theme === 'dark') { sun.style.display = 'none'; moon.style.display = 'block'; }
+  else { sun.style.display = 'block'; moon.style.display = 'none'; }
+}
+
+const savedTheme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+updateThemeToggle(savedTheme);
+
+// ============================================
+// WEBSOCKET
+// ============================================
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    wsDot.classList.add('connected');
+    wsStatus.textContent = 'Connected';
+    appendLog('Connected to UI Police server', 'log-success');
+  };
+
+  ws.onclose = () => {
+    wsDot.classList.remove('connected');
+    wsStatus.textContent = 'Disconnected';
+    appendLog('Disconnected. Reconnecting...', 'log-warn');
+    setTimeout(connectWS, 2000);
+  };
+
+  ws.onerror = () => { ws.close(); };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      handleMessage(msg);
+    } catch {
+      appendLog(event.data, '');
+    }
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'connected':
+      versionEl.textContent = `v${msg.data.version}`;
+      if (msg.data.isRunning) setRunning(true, msg.data.currentPhase);
+      break;
+    case 'log':
+      appendLog(msg.data, classifyLog(msg.data));
+      break;
+    case 'status':
+      setRunning(true, msg.data.phase);
+      if (msg.data.detail) appendLog(msg.data.detail, 'log-info');
+      break;
+    case 'done':
+      setRunning(false, 'idle');
+      if (msg.data.success) {
+        appendLog(`\n✓ ${msg.data.phase} completed: ${msg.data.detail || ''}`, 'log-success');
+      } else {
+        appendLog(`\n✗ ${msg.data.phase} failed: ${msg.data.detail || ''}`, 'log-error');
+      }
+      refreshData();
+      break;
+  }
+}
+
+function classifyLog(line) {
+  if (typeof line !== 'string') return '';
+  if (line.startsWith('[ERROR]') || line.includes('✗') || line.includes('Error')) return 'log-error';
+  if (line.startsWith('[WARN]') || line.includes('⚠')) return 'log-warn';
+  if (line.includes('✓') || line.includes('✅') || line.includes('success')) return 'log-success';
+  if (line.includes('═══') || line.includes('━━━')) return 'log-separator';
+  if (line.startsWith('  ') && (line.includes('→') || line.includes('│'))) return 'log-dim';
+  return '';
+}
+
+// ============================================
+// TERMINAL
+// ============================================
+function appendLog(text, className) {
+  const span = document.createElement('span');
+  span.className = `log-line ${className || ''}`;
+  const clean = String(text).replace(/\x1b\[[0-9;]*m/g, '');
+  span.textContent = clean + '\n';
+  terminal.appendChild(span);
+  if (autoScroll) terminal.scrollTop = terminal.scrollHeight;
+}
+
+function clearTerminal() {
+  terminal.innerHTML = '';
+  appendLog('Terminal cleared', 'log-dim');
+}
+
+function toggleAutoscroll() {
+  autoScroll = !autoScroll;
+  document.getElementById('btn-autoscroll').textContent = `Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
+}
+
+// ============================================
+// UI STATE
+// ============================================
+function setRunning(running, phase) {
+  isRunning = running;
+  statusPill.className = running ? 'status-pill running' : 'status-pill';
+  statusText.textContent = running ? capitalize(phase) + '...' : 'Idle';
+  const btns = ['btn-pipeline', 'btn-capture', 'btn-compare', 'btn-report', 'btn-codegen', 'btn-new-script'];
+  btns.forEach(id => { document.getElementById(id).disabled = running; });
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ============================================
+// API HELPERS
+// ============================================
+async function apiPost(endpoint, body = {}) {
+  body.app = appSelect.value;
+  body.env = envSelect.value;
+  try {
+    const res = await fetch(`/api/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) appendLog(`API error: ${data.error || res.statusText}`, 'log-error');
+    return data;
+  } catch (err) {
+    appendLog(`Request failed: ${err.message}`, 'log-error');
+  }
+}
+
+async function apiFetch(endpoint, method = 'GET', body = null) {
+  const opts = { method, headers: {} };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(endpoint, opts);
+  return res.json();
+}
+
+// ============================================
+// ACTION HANDLERS
+// ============================================
+function runPipeline() { apiPost('pipeline'); }
+function runCapture() { apiPost('capture'); }
+function runCompare() { apiPost('compare'); }
+function runReport() { apiPost('report'); }
+function runCodegen() { apiPost('codegen'); }
+
+async function openReportsIndex() {
+  // Regenerate the main index so it picks up any existing per-app reports
+  await apiFetch('/api/report/index', 'POST', {});
+  window.open('/reports/index.html', '_blank');
+  loadReports();
+}
+
+async function runScriptByName(name) {
+  apiPost('scripts/run', { name });
+}
+
+// ============================================
+// SCRIPT EDITOR MODAL
+// ============================================
+function openScriptEditor(scriptName) {
+  editingScript = scriptName || null;
+  document.getElementById('modal-script-name').value = '';
+  document.getElementById('modal-script-desc').value = '';
+  document.getElementById('modal-script-code').value = '';
+  document.getElementById('modal-delete-btn').style.display = 'none';
+
+  if (editingScript) {
+    document.getElementById('modal-title').textContent = 'Edit Script';
+    document.getElementById('modal-script-name').value = editingScript;
+    document.getElementById('modal-script-name').readOnly = true;
+    document.getElementById('modal-delete-btn').style.display = 'block';
+
+    // Load script content
+    fetch(`/api/scripts/read?app=${appSelect.value}&name=${encodeURIComponent(editingScript)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.content) document.getElementById('modal-script-code').value = data.content;
+      });
+
+    // Load description from scripts list
+    const scripts = configData?._scripts || [];
+    const s = scripts.find(x => x.name === editingScript);
+    if (s) document.getElementById('modal-script-desc').value = s.description || '';
+  } else {
+    document.getElementById('modal-title').textContent = 'New Script';
+    document.getElementById('modal-script-name').readOnly = false;
+  }
+
+  document.getElementById('script-modal').classList.add('active');
+}
+
+function closeScriptEditor() {
+  document.getElementById('script-modal').classList.remove('active');
+  editingScript = null;
+}
+
+async function saveCurrentScript() {
+  const name = document.getElementById('modal-script-name').value.trim();
+  const code = document.getElementById('modal-script-code').value;
+  const desc = document.getElementById('modal-script-desc').value.trim();
+
+  if (!name) { alert('Please enter a script name'); return; }
+  if (!code.trim()) { alert('Please enter the script code'); return; }
+
+  if (editingScript) {
+    await apiFetch('/api/scripts/update', 'PUT', {
+      app: appSelect.value,
+      name: editingScript,
+      code,
+      description: desc || undefined,
+    });
+    appendLog(`Script "${editingScript}" updated`, 'log-success');
+  } else {
+    await apiFetch('/api/scripts/save', 'POST', {
+      app: appSelect.value,
+      name,
+      code,
+      description: desc || undefined,
+    });
+    appendLog(`Script "${name}" saved`, 'log-success');
+  }
+
+  closeScriptEditor();
+  loadScripts();
+}
+
+async function deleteCurrentScript() {
+  if (!editingScript) return;
+  if (!confirm(`Delete script "${editingScript}"?`)) return;
+
+  await apiFetch('/api/scripts/delete', 'DELETE', {
+    app: appSelect.value,
+    name: editingScript,
+  });
+  appendLog(`Script "${editingScript}" deleted`, 'log-warn');
+  closeScriptEditor();
+  loadScripts();
+}
+
+// ============================================
+// DATA LOADING
+// ============================================
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    configData = await res.json();
+
+    versionEl.textContent = `v${configData.version}`;
+    document.getElementById('stat-apps').textContent = configData.apps.length;
+
+    // Populate app select
+    appSelect.innerHTML = '';
+    configData.apps.forEach(app => {
+      const opt = document.createElement('option');
+      opt.value = app.name;
+      opt.textContent = app.displayName;
+      if (app.name === configData.currentApp) opt.selected = true;
+      appSelect.appendChild(opt);
+    });
+
+    // Populate environment select
+    envSelect.innerHTML = '';
+    configData.environments.forEach(env => {
+      const opt = document.createElement('option');
+      opt.value = env.name;
+      opt.textContent = `${env.name.toUpperCase()} — ${env.baseUrl}`;
+      envSelect.appendChild(opt);
+    });
+
+    updateSidebarTitle();
+    renderEnvBox();
+  } catch (err) {
+    appendLog(`Failed to load config: ${err.message}`, 'log-error');
+  }
+}
+
+function updateSidebarTitle() {
+  const sel = appSelect.options[appSelect.selectedIndex];
+  document.getElementById('sidebar-app-name').textContent = sel ? sel.textContent : 'UI Police';
+  document.getElementById('hero-title').textContent = sel ? sel.textContent : 'UI Police Dashboard';
+}
+
+function renderEnvBox() {
+  if (!configData) return;
+  const container = document.getElementById('hero-envs');
+  const rows = configData.environments.map(e => `
+    <div class="env-row">
+      <span class="env-label ${e.name}">${e.name.toUpperCase()}</span>
+      <span class="env-url">${e.baseUrl}</span>
+    </div>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="env-box">
+      <div class="env-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Environments
+      </div>
+      ${rows}
+    </div>
+  `;
+}
+
+async function loadScripts() {
+  try {
+    const res = await fetch(`/api/scripts?app=${appSelect.value}`);
+    const data = await res.json();
+    const container = document.getElementById('scripts-list');
+    const scripts = data.scripts || [];
+    document.getElementById('stat-scripts').textContent = scripts.length;
+
+    // Cache for editor
+    if (configData) configData._scripts = scripts;
+
+    if (scripts.length === 0) {
+      container.innerHTML = '<div class="empty-state">No scripts recorded yet</div>';
+      return;
+    }
+
+    container.innerHTML = scripts.map(s => `
+      <div class="item-card">
+        <div style="min-width:0;flex:1">
+          <span class="item-name">${s.name}</span>
+          <div class="item-meta">${s.description || ''}</div>
+        </div>
+        <div class="item-actions">
+          <button class="item-action" onclick="runScriptByName('${s.name}')" title="Run">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          <button class="item-action" onclick="openScriptEditor('${s.name}')" title="Edit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="item-action danger" onclick="quickDeleteScript('${s.name}')" title="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch { /* ignore */ }
+}
+
+async function quickDeleteScript(name) {
+  if (!confirm(`Delete script "${name}"?`)) return;
+  await apiFetch('/api/scripts/delete', 'DELETE', { app: appSelect.value, name });
+  appendLog(`Script "${name}" deleted`, 'log-warn');
+  loadScripts();
+}
+
+async function loadReports() {
+  try {
+    const res = await fetch('/api/reports');
+    const data = await res.json();
+    const container = document.getElementById('reports-list');
+    const items = [];
+
+    // Main index link
+    if (data.mainIndex) {
+      items.push(`
+        <a href="${data.mainIndex}" target="_blank" class="report-link report-link-main">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span class="report-name">All Reports Index</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>`);
+    }
+
+    // Per-app reports
+    if (data.reports && data.reports.length > 0) {
+      for (const r of data.reports) {
+        if (!r.exists) continue;
+        items.push(`
+          <a href="${r.url}" target="_blank" class="report-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="report-name">${r.displayName}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>`);
+      }
+    }
+
+    container.innerHTML = items.length > 0
+      ? items.join('')
+      : '<div class="empty-state">No reports generated yet</div>';
+  } catch { /* ignore */ }
+}
+
+async function loadRuns() {
+  try {
+    const res = await fetch(`/api/runs?app=${appSelect.value}`);
+    const data = await res.json();
+    const container = document.getElementById('runs-list');
+    document.getElementById('stat-runs').textContent = data.runs?.length ?? 0;
+
+    if (!data.runs || data.runs.length === 0) {
+      container.innerHTML = '<div class="empty-state">No runs yet</div>';
+      return;
+    }
+
+    const recent = data.runs.slice(-8).reverse();
+    container.innerHTML = recent.map(r => {
+      const cls = r.status === 'completed' ? 'badge-green'
+        : r.status === 'running' ? 'badge-accent'
+        : r.status === 'failed' ? 'badge-red' : 'badge-muted';
+      return `
+        <div class="item-card">
+          <div>
+            <span class="item-name">${r.runId}</span>
+            <span class="item-meta" style="margin-left:8px">${r.environment}</span>
+          </div>
+          <span class="badge ${cls}">${r.status}</span>
+        </div>`;
+    }).join('');
+  } catch { /* ignore */ }
+}
+
+function refreshData() {
+  loadScripts();
+  loadRuns();
+  loadReports();
+  updateSidebarTitle();
+}
+
+appSelect?.addEventListener('change', refreshData);
+envSelect?.addEventListener('change', () => {});
+
+// Close modal on overlay click
+document.getElementById('script-modal')?.addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeScriptEditor();
+});
+
+// Close modal on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeScriptEditor();
+});
+
+// ============================================
+// INIT
+// ============================================
+(async () => {
+  await loadConfig();
+  refreshData();
+  connectWS();
+})();
+</script>
+</body>
+</html>

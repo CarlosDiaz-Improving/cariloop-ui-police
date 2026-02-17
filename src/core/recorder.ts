@@ -6,7 +6,7 @@
  */
 
 import { execSync, spawn } from "child_process";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync } from "fs";
 import path from "path";
 import { environments, getAppConfig } from "./config";
 import { getCapturesDir } from "./runs";
@@ -83,7 +83,7 @@ export async function startRecording(
     // Use Playwright codegen with --target=javascript
     // The output goes to stdout; we capture it
     const output = execSync(
-      `npx playwright codegen --target=javascript "${targetUrl}"`,
+      `bunx playwright codegen --target=javascript "${targetUrl}"`,
       {
         encoding: "utf-8",
         stdio: ["inherit", "pipe", "inherit"],
@@ -189,4 +189,123 @@ export async function runScript(
     log.error(`Script failed: ${err}`);
     return false;
   }
+}
+
+/**
+ * Execute all registered scripts for an app.
+ * Runs each script sequentially. Returns the number of scripts executed.
+ * This is called by the capture pipeline after page captures.
+ */
+export async function executeAllScripts(appName: string): Promise<number> {
+  const scripts = listScripts(appName);
+  if (scripts.length === 0) return 0;
+
+  log.header(`Running ${scripts.length} recorded script(s)`);
+  let executed = 0;
+
+  for (const script of scripts) {
+    const success = await runScript(appName, script.name);
+    if (success) executed++;
+  }
+
+  if (executed > 0) {
+    log.success(`${executed}/${scripts.length} scripts completed`);
+  }
+  return executed;
+}
+
+/**
+ * Check if an app has any registered scripts
+ */
+export function hasScripts(appName: string): boolean {
+  return listScripts(appName).length > 0;
+}
+
+/**
+ * Get the content of a saved script
+ */
+export function getScriptContent(appName: string, scriptName: string): string | null {
+  const registry = loadRegistry(appName);
+  const script = registry.find((s) => s.name === scriptName);
+  if (!script) return null;
+
+  const filepath = path.join(getScriptsDir(appName), script.file);
+  if (!existsSync(filepath)) return null;
+  return readFileSync(filepath, "utf-8");
+}
+
+/**
+ * Save a raw script (pasted from codegen) directly to disk and register it.
+ * Unlike saveRecordedScript, this does NOT wrap the code — it saves as-is.
+ */
+export function saveRawScript(
+  appName: string,
+  code: string,
+  scriptName: string,
+  description?: string,
+): string {
+  const dir = getScriptsDir(appName);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  const filename = `${scriptName}.ts`;
+  const filepath = path.join(dir, filename);
+  writeFileSync(filepath, code, "utf-8");
+
+  // Register if not already registered
+  const registry = loadRegistry(appName);
+  const existing = registry.findIndex((s) => s.name === scriptName);
+  if (existing >= 0) {
+    registry[existing]!.description = description ?? registry[existing]!.description;
+  } else {
+    registry.push({
+      name: scriptName,
+      file: filename,
+      description: description ?? `Script (${new Date().toLocaleDateString()})`,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  saveRegistry(appName, registry);
+  return filepath;
+}
+
+/**
+ * Update an existing script's content and/or description
+ */
+export function updateScript(
+  appName: string,
+  scriptName: string,
+  code?: string,
+  description?: string,
+): boolean {
+  const registry = loadRegistry(appName);
+  const idx = registry.findIndex((s) => s.name === scriptName);
+  if (idx < 0) return false;
+
+  if (code !== undefined) {
+    const filepath = path.join(getScriptsDir(appName), registry[idx]!.file);
+    writeFileSync(filepath, code, "utf-8");
+  }
+  if (description !== undefined) {
+    registry[idx]!.description = description;
+  }
+  saveRegistry(appName, registry);
+  return true;
+}
+
+/**
+ * Delete a script from disk and registry
+ */
+export function deleteScript(appName: string, scriptName: string): boolean {
+  const registry = loadRegistry(appName);
+  const idx = registry.findIndex((s) => s.name === scriptName);
+  if (idx < 0) return false;
+
+  const filepath = path.join(getScriptsDir(appName), registry[idx]!.file);
+  if (existsSync(filepath)) {
+    unlinkSync(filepath);
+  }
+
+  registry.splice(idx, 1);
+  saveRegistry(appName, registry);
+  return true;
 }

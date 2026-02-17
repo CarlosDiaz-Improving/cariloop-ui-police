@@ -51,6 +51,7 @@ import {
 import { log, style, symbols } from "../utils/terminal";
 import { pathToFilename, interactionFilename } from "../utils/paths";
 import { captureRegistrationFlow, getRegistrationMode, getAvailableTestUsers } from "../apps/auth/registration-flow";
+import { hasScripts, executeAllScripts } from "./recorder";
 
 /**
  * Capture interactions on the current page (menus, buttons, hover states)
@@ -350,6 +351,15 @@ export async function captureAll(
     } catch (err) {
       log.error(`Failed to capture environment ${env.name}: ${err}`);
       console.log("  Continuing to next environment...\n");
+    }
+  }
+
+  // Run registered codegen scripts (after all page captures)
+  if (hasScripts(appName)) {
+    try {
+      await executeAllScripts(appName);
+    } catch (err) {
+      log.error(`Script execution failed: ${err}`);
     }
   }
 

@@ -4,6 +4,40 @@ All notable changes to UI Police will be documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-02-17
+
+### Added
+
+- **Web Dashboard** (`bun run ui`) — browser-based control panel at `http://localhost:3737` using `Bun.serve()` + WebSocket. Left panel with app selector, action buttons, scripts list, and run history. Right panel with real-time terminal log streaming.
+- **Playwright Codegen CLI** (`bun run codegen`) — standalone entry point for recording Playwright scripts. Accepts `[app] [env] [name]` args or prompts interactively. Scripts saved to `output/captures/scripts/{app}/`.
+- **Codegen script auto-execution** — registered scripts are automatically executed during the capture pipeline after all page screenshots are taken.
+- **`src/server.ts`** — Bun.serve() HTTP + WebSocket server with REST API for capture, compare, report, codegen, and pipeline operations.
+- **`src/ui/dashboard.html`** — self-contained HTML dashboard (no framework, inline CSS + JS, dark theme with orange accents).
+- **`src/bin/codegen.ts`** — standalone Playwright Codegen CLI with interactive prompts and `--help`.
+- **`src/core/log-stream.ts`** — console interceptor that fans out `console.log`/`error`/`warn` to WebSocket clients while preserving terminal output.
+- **`bin` entries in `package.json`** — `ui-police`, `ui-police-ui`, `ui-police-codegen` for direct execution.
+- **`recorder.ts` enhancements** — `executeAllScripts()`, `hasScripts()` for pipeline integration.
+
+### Changed
+
+- **Output centralized under `output/`** — captures at `output/captures/`, reports at `output/reports/`. No more `screenshots/`, `captures/`, or `reports/` at project root.
+- **Per-environment runs** — directory structure changed to `output/captures/{app}/{env}/{YYMMDD-NNN}/`. Each run is scoped to one app × one environment. Run IDs are sequential per app+env+date.
+- **Incomplete run protection** — `getOrCreateRun()` detects and resumes incomplete runs instead of creating duplicates.
+- **`RunManifest` flattened** — single environment per manifest (no more nested `RunEnvironmentData`). `RunSummary.environment` is now a singular string.
+- **`captureAll()` returns `runIds: Record<string, string>`** (env→runId map) instead of a single `runId`.
+- **`compareScreenshots()` uses `getLatestCompletedRun()` per environment** for cross-env diffs.
+- **`.gitignore` simplified** — single `output/` entry replaces `screenshots/`, `captures/`, `reports/`.
+- **Version bumped to 2.0.0**.
+
+### Removed
+
+- **`getScreenshotsDir()`** — replaced by `getAppDir()` from `runs.ts` and `getOutputDir()` from `config.ts`.
+- **`completeRunEnvironment()`** — no longer needed since each run is single-environment.
+- **`RunEnvironmentData` interface** — flattened into `RunManifest`.
+- **Legacy `screenshots/` directory** — all output now under `output/`.
+
+---
+
 ## [1.0.0] - 2026-02-17
 
 ### Added

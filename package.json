@@ -1,15 +1,22 @@
 {
   "name": "cariloop-ui-police",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "module": "index.ts",
   "type": "module",
   "private": true,
   "scripts": {
     "start": "./run.sh",
     "start:direct": "bun run src/index.ts",
-    "capture": "bun run src/capture.ts",
-    "compare": "bun run src/compare.ts",
-    "report": "bun run src/report.ts"
+    "ui": "bun run src/server.ts",
+    "codegen": "bun run src/bin/codegen.ts",
+    "capture": "bun run src/core/capture.ts",
+    "compare": "bun run src/core/compare.ts",
+    "report": "bun run src/core/report.ts"
+  },
+  "bin": {
+    "ui-police": "./src/index.ts",
+    "ui-police-ui": "./src/server.ts",
+    "ui-police-codegen": "./src/bin/codegen.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
