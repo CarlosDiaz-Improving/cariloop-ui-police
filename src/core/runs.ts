@@ -19,7 +19,7 @@
  *   - If an incomplete run exists for app+env, it is resumed — no new run is created.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
 import path from "path";
 import type {
   GlobalManifest,
@@ -308,6 +308,27 @@ export function completeRun(
     entry.status = status;
     saveGlobalManifest(globalManifest);
   }
+}
+
+/**
+ * Delete a run — removes the run directory and entries from manifests.
+ */
+export function deleteRun(app: string, env: string, runId: string): boolean {
+  const runDir = getRunDir(app, env, runId);
+  if (existsSync(runDir)) {
+    rmSync(runDir, { recursive: true, force: true });
+  }
+
+  const global = loadGlobalManifest();
+  const idx = global.runs.findIndex(
+    (r) => r.runId === runId && r.app === app && r.environment === env,
+  );
+  if (idx === -1) return false;
+
+  global.runs.splice(idx, 1);
+  global.totalRuns = Math.max(0, global.totalRuns - 1);
+  saveGlobalManifest(global);
+  return true;
 }
 
 // ============================================

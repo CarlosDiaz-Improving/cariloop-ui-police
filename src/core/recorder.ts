@@ -243,6 +243,27 @@ export async function executeAllScripts(appName: string): Promise<number> {
 }
 
 /**
+ * Execute only selected scripts (by name) for an app.
+ * Returns the number of scripts that executed successfully.
+ */
+export async function executeSelectedScripts(appName: string, scriptNames: string[]): Promise<number> {
+  if (scriptNames.length === 0) return 0;
+
+  log.header(`Running ${scriptNames.length} selected script(s)`);
+  let executed = 0;
+
+  for (const name of scriptNames) {
+    const success = await runScript(appName, name);
+    if (success) executed++;
+  }
+
+  if (executed > 0) {
+    log.success(`${executed}/${scriptNames.length} scripts completed`);
+  }
+  return executed;
+}
+
+/**
  * Check if an app has any registered scripts
  */
 export function hasScripts(appName: string): boolean {

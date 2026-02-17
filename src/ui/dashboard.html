@@ -326,7 +326,7 @@
     font-weight: 600;
   }
 
-  .btn-primary:hover { opacity: 0.9; border-color: transparent; }
+  .btn-primary:hover { opacity: 0.85; border-color: transparent; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
   .btn-primary svg { color: rgba(255,255,255,0.9); }
 
   .btn-row {
@@ -491,17 +491,32 @@
     font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   }
 
-  /* ── TERMINAL ── */
+  /* ── TERMINAL + PIPELINE PANEL ROW ── */
+  .main-content-row {
+    flex: 1;
+    display: flex;
+    gap: 0;
+    margin: 16px 20px 20px;
+    min-height: 0;
+  }
+
   .terminal-wrap {
     flex: 1;
     display: flex;
     flex-direction: column;
-    margin: 16px 20px 20px;
     border-radius: 16px;
     overflow: hidden;
     border: 1px solid var(--border-color);
     box-shadow: var(--card-shadow);
     background: var(--bg-secondary);
+    min-width: 0;
+    transition: border-radius 0.2s;
+  }
+
+  .main-content-row.panel-open .terminal-wrap {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
   }
 
   .terminal-chrome {
@@ -836,6 +851,321 @@
   }
   .btn.btn-danger-outline:hover { background: rgba(248,113,113,0.1); }
 
+  .btn.btn-stop {
+    background: #dc2626;
+    color: #fff;
+    border-color: transparent;
+    font-weight: 600;
+  }
+  .btn.btn-stop:hover { opacity: 0.85; background: #dc2626; border-color: transparent; }
+  .btn.btn-stop svg { color: rgba(255,255,255,0.9); }
+
+  /* ── PIPELINE PANEL (inline, next to terminal) ── */
+  .pipeline-panel {
+    width: 300px;
+    flex-shrink: 0;
+    display: none;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-radius: 0 16px 16px 0;
+    background: var(--bg-secondary);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+  }
+
+  .main-content-row.panel-open .pipeline-panel { display: flex; }
+
+  .pipeline-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .pipeline-panel-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+  .pipeline-panel-close:hover { color: var(--text-primary); }
+
+  .pipeline-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pipeline-panel-footer {
+    padding: 12px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .pipeline-panel-footer .btn { width: 100%; justify-content: center; }
+
+  .pipeline-tasks { display: flex; flex-direction: column; gap: 6px; }
+
+  .pipeline-task {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .pipeline-task:hover { border-color: var(--accent); background: var(--hover-bg); }
+
+  .pipeline-task input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #667eea;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .pipeline-task-label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+
+  .pipeline-task-desc {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .pipeline-task-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(102, 126, 234, 0.15);
+    color: var(--accent);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .pipeline-scripts-sub {
+    padding: 4px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-left: 23px;
+  }
+
+  .pipeline-script-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    font-size: 11px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pipeline-script-item:hover { border-color: var(--accent); }
+
+  .pipeline-script-item input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    accent-color: #667eea;
+    cursor: pointer;
+  }
+
+  .pipeline-script-name { font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pipeline-script-desc { display: none; }
+
+  .pipeline-resume-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    background: rgba(102, 126, 234, 0.05);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pipeline-resume-row:hover { background: rgba(102, 126, 234, 0.1); }
+
+  .pipeline-resume-label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1.3;
+  }
+
+  .pipeline-resume-detail {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .pipeline-no-scripts {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    margin-left: 23px;
+  }
+
+  /* ── RUNS MANAGEMENT PANEL ── */
+  .runs-panel {
+    width: 320px;
+    flex-shrink: 0;
+    display: none;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-radius: 0 16px 16px 0;
+    background: var(--bg-secondary);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+  }
+
+  .main-content-row.runs-open .runs-panel { display: flex; }
+  .main-content-row.runs-open .terminal-wrap {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+  }
+
+  .runs-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .runs-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .run-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    transition: border-color 0.2s;
+  }
+
+  .run-card:hover { border-color: var(--accent); }
+
+  .run-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .run-card-id {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  }
+
+  .run-card-env {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  .run-card-env.develop { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+  .run-card-env.local { background: rgba(249, 115, 22, 0.2); color: #fb923c; }
+
+  .run-card-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .run-card-status {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+  .run-card-status.completed { background: rgba(74,222,128,0.15); color: #4ade80; }
+  .run-card-status.running { background: rgba(102,126,234,0.15); color: var(--accent); }
+  .run-card-status.failed { background: rgba(248,113,113,0.15); color: #f87171; }
+  .run-card-status.cancelled { background: rgba(156,163,175,0.15); color: var(--text-muted); }
+
+  .run-card-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .run-action-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: "Google Sans", -apple-system, sans-serif;
+    transition: all 0.2s;
+  }
+
+  .run-action-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .run-action-btn.danger { border-color: rgba(248,113,113,0.3); color: #f87171; }
+  .run-action-btn.danger:hover { background: rgba(248,113,113,0.1); border-color: #f87171; }
+
+  .runs-empty {
+    text-align: center;
+    padding: 24px 12px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
   /* Scrollbar (matches report) */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
@@ -907,9 +1237,9 @@
       <nav class="nav-section">
         <div class="nav-section-title">Actions</div>
         <div class="btn-group">
-          <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">
+          <button class="btn btn-primary" id="btn-pipeline" onclick="openPipelineModal()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Run Full Pipeline
+            <span id="btn-pipeline-text">Run Full Pipeline</span>
           </button>
           <button class="btn" id="btn-capture" onclick="runCapture()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
@@ -948,7 +1278,10 @@
 
       <!-- Recent Runs -->
       <nav class="nav-section">
-        <div class="nav-section-title">Recent Runs</div>
+        <div class="nav-section-title" style="display:flex;align-items:center;justify-content:space-between">
+          Recent Runs
+          <button class="terminal-action-btn" onclick="openRunsPanel()" style="font-size:10px;padding:2px 8px">Manage</button>
+        </div>
         <div class="items-list" id="runs-list">
           <div class="empty-state">No runs yet</div>
         </div>
@@ -979,27 +1312,92 @@
         <div class="hero-right" id="hero-envs"></div>
       </div>
 
-      <!-- Terminal (card style) -->
-      <div class="terminal-wrap">
-        <div class="terminal-chrome">
-          <div class="terminal-chrome-left">
-            <div class="terminal-dots">
-              <span class="dot-red"></span>
-              <span class="dot-yellow"></span>
-              <span class="dot-green"></span>
+      <!-- Terminal + Pipeline Panel -->
+      <div class="main-content-row" id="main-content-row">
+        <div class="terminal-wrap">
+          <div class="terminal-chrome">
+            <div class="terminal-chrome-left">
+              <div class="terminal-dots">
+                <span class="dot-red"></span>
+                <span class="dot-yellow"></span>
+                <span class="dot-green"></span>
+              </div>
+              <div class="terminal-tab">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                Output
+              </div>
             </div>
-            <div class="terminal-tab">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-              Output
+            <div class="terminal-chrome-right">
+              <button class="terminal-action-btn" onclick="clearTerminal()">Clear</button>
+              <button class="terminal-action-btn" id="btn-autoscroll" onclick="toggleAutoscroll()">Auto-scroll: ON</button>
             </div>
           </div>
-          <div class="terminal-chrome-right">
-            <button class="terminal-action-btn" onclick="clearTerminal()">Clear</button>
-            <button class="terminal-action-btn" id="btn-autoscroll" onclick="toggleAutoscroll()">Auto-scroll: ON</button>
+          <div class="terminal" id="terminal">
+            <span class="log-dim">Waiting for connection...</span>
           </div>
         </div>
-        <div class="terminal" id="terminal">
-          <span class="log-dim">Waiting for connection...</span>
+
+        <!-- Right-side panels (only one visible at a time) -->
+        <div class="pipeline-panel" id="pipeline-panel">
+          <div class="pipeline-panel-header">
+            <span id="pipeline-panel-title">Pipeline Config</span>
+            <button class="pipeline-panel-close" onclick="closePipelinePanel()">&times;</button>
+          </div>
+          <div class="pipeline-panel-body">
+            <div id="pipeline-resume-section"></div>
+            <div class="pipeline-tasks">
+              <label class="pipeline-task" for="pl-task-capture">
+                <input type="checkbox" id="pl-task-capture" checked />
+                <div class="pipeline-task-label">
+                  Capture Screenshots
+                  <div class="pipeline-task-desc">Discover &amp; screenshot pages</div>
+                </div>
+              </label>
+
+              <label class="pipeline-task" for="pl-task-scripts">
+                <input type="checkbox" id="pl-task-scripts" checked onchange="toggleScriptsList()" />
+                <div class="pipeline-task-label">
+                  Run Scripts
+                  <div class="pipeline-task-desc">Execute Playwright scripts</div>
+                </div>
+                <span class="pipeline-task-badge" id="pl-scripts-count">0</span>
+              </label>
+              <div id="pl-scripts-list" class="pipeline-scripts-sub"></div>
+
+              <label class="pipeline-task" for="pl-task-compare">
+                <input type="checkbox" id="pl-task-compare" checked />
+                <div class="pipeline-task-label">
+                  Compare Environments
+                  <div class="pipeline-task-desc">Generate pixel diffs</div>
+                </div>
+              </label>
+
+              <label class="pipeline-task" for="pl-task-report">
+                <input type="checkbox" id="pl-task-report" checked />
+                <div class="pipeline-task-label">
+                  Generate Report
+                  <div class="pipeline-task-desc">Create HTML report</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          <div class="pipeline-panel-footer">
+            <button class="btn btn-primary" id="pl-run-btn" onclick="executePipeline()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Run Pipeline
+            </button>
+          </div>
+        </div>
+
+        <!-- Runs Management Panel -->
+        <div class="runs-panel" id="runs-panel">
+          <div class="runs-panel-header">
+            <span>Manage Runs</span>
+            <button class="pipeline-panel-close" onclick="closeRunsPanel()">&times;</button>
+          </div>
+          <div class="runs-panel-body" id="runs-panel-body">
+            <div class="runs-empty">Loading runs...</div>
+          </div>
         </div>
       </div>
     </main>
@@ -1220,12 +1618,34 @@ function setRunning(running, phase) {
   statusPill.className = running ? 'status-pill running' : 'status-pill';
   statusText.textContent = running ? capitalize(phase) + '...' : 'Idle';
 
+  const pipelineBtn = document.getElementById('btn-pipeline');
+  const pipelineText = document.getElementById('btn-pipeline-text');
+
   // Disable most buttons during a run
-  const btns = ['btn-pipeline', 'btn-capture', 'btn-compare', 'btn-report'];
+  const btns = ['btn-capture', 'btn-compare', 'btn-report'];
   btns.forEach(id => { document.getElementById(id).disabled = running; });
 
-  // btn-new-script stays enabled always (user can save scripts while codegen runs)
+  // btn-new-script stays enabled always
   document.getElementById('btn-new-script').disabled = false;
+
+  // Pipeline button: stop mode when pipeline is running
+  const isPipelinePhase = ['capturing', 'comparing', 'reporting', 'pipeline', 'script'].includes(phase);
+  if (running && isPipelinePhase) {
+    closePipelinePanel();
+    pipelineBtn.disabled = false;
+    pipelineBtn.onclick = stopPipeline;
+    pipelineBtn.classList.remove('btn-primary');
+    pipelineBtn.classList.add('btn-stop');
+    pipelineText.textContent = 'Stop Pipeline';
+  } else {
+    pipelineBtn.disabled = running; // disabled if something else is running (codegen)
+    pipelineBtn.onclick = openPipelineModal;
+    pipelineBtn.classList.add('btn-primary');
+    pipelineBtn.classList.remove('btn-stop');
+    pipelineText.textContent = 'Run Full Pipeline';
+    // Check for resumable progress on idle
+    if (!running) checkProgress();
+  }
 
   // Codegen toggle logic
   if (phase === 'codegen' && running) {
@@ -1276,13 +1696,11 @@ async function apiFetch(endpoint, method = 'GET', body = null) {
 // ============================================
 // ACTION HANDLERS
 // ============================================
-function runPipeline() { apiPost('pipeline'); }
 function runCapture() { apiPost('capture'); }
 function runReport() { apiPost('report'); }
 
 function toggleCodegen() {
   if (codegenActive) {
-    // Stop the running codegen
     apiFetch('/api/codegen/stop', 'POST', {});
   } else {
     apiPost('codegen');
@@ -1296,6 +1714,210 @@ async function openReportsIndex() {
 
 async function runScriptByName(name) {
   apiPost('scripts/run', { name });
+}
+
+async function stopPipeline() {
+  appendLog('Stopping pipeline...', 'log-warn');
+  await apiFetch('/api/pipeline/stop', 'POST', {});
+}
+
+// ============================================
+// PIPELINE CONFIG PANEL (inline)
+// ============================================
+let pipelineProgressData = null;
+
+async function checkProgress() {
+  try {
+    const data = await apiFetch(`/api/progress?app=${appSelect.value}`);
+    pipelineProgressData = data.hasProgress ? data : null;
+    const pipelineText = document.getElementById('btn-pipeline-text');
+    if (pipelineProgressData && !isRunning) {
+      pipelineText.textContent = 'Resume Pipeline';
+    }
+  } catch { pipelineProgressData = null; }
+}
+
+async function openPipelineModal() {
+  if (isRunning) return;
+
+  // Reset checkboxes
+  document.getElementById('pl-task-capture').checked = true;
+  document.getElementById('pl-task-scripts').checked = true;
+  document.getElementById('pl-task-compare').checked = true;
+  document.getElementById('pl-task-report').checked = true;
+
+  // Load scripts for current app
+  const app = appSelect.value;
+  try {
+    const res = await fetch(`/api/scripts?app=${app}`);
+    const data = await res.json();
+    const scripts = data.scripts || [];
+    document.getElementById('pl-scripts-count').textContent = scripts.length;
+
+    const listEl = document.getElementById('pl-scripts-list');
+    if (scripts.length === 0) {
+      listEl.innerHTML = '<div class="pipeline-no-scripts">No scripts for this app</div>';
+      document.getElementById('pl-task-scripts').checked = false;
+    } else {
+      listEl.innerHTML = scripts.map(s => `
+        <label class="pipeline-script-item" for="pl-script-${s.name}">
+          <input type="checkbox" id="pl-script-${s.name}" data-script-name="${s.name}" checked />
+          <span class="pipeline-script-name">${s.name}</span>
+        </label>
+      `).join('');
+    }
+  } catch {
+    document.getElementById('pl-scripts-list').innerHTML = '<div class="pipeline-no-scripts">Error loading scripts</div>';
+    document.getElementById('pl-scripts-count').textContent = '0';
+  }
+
+  // Check for resumable progress
+  await checkProgress();
+  const resumeSection = document.getElementById('pipeline-resume-section');
+  if (pipelineProgressData) {
+    const p = pipelineProgressData;
+    const envsDone = Object.entries(p.environments || {}).filter(([, v]) => v.complete).length;
+    const envsTotal = Object.keys(p.environments || {}).length;
+    const pagesCaptured = Object.values(p.environments || {}).reduce((sum, v) => sum + (v.capturedPages || 0), 0);
+    resumeSection.innerHTML = `
+      <label class="pipeline-resume-row" for="pl-resume-toggle">
+        <input type="checkbox" id="pl-resume-toggle" checked />
+        <div class="pipeline-resume-label">
+          Resume previous run
+          <div class="pipeline-resume-detail">${envsDone}/${envsTotal} envs done, ${pagesCaptured} pages, ${p.discoveredPages || 0} discovered</div>
+        </div>
+      </label>
+    `;
+    document.getElementById('pipeline-panel-title').textContent = 'Resume Pipeline';
+    document.getElementById('pl-run-btn').innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Resume
+    `;
+  } else {
+    resumeSection.innerHTML = '';
+    document.getElementById('pipeline-panel-title').textContent = 'Pipeline Config';
+    document.getElementById('pl-run-btn').innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Run Pipeline
+    `;
+  }
+
+  toggleScriptsList();
+
+  // Close runs panel if open, then show pipeline panel
+  closeRunsPanel();
+  document.getElementById('main-content-row').classList.add('panel-open');
+}
+
+function closePipelinePanel() {
+  document.getElementById('main-content-row').classList.remove('panel-open');
+}
+
+function toggleScriptsList() {
+  const checked = document.getElementById('pl-task-scripts').checked;
+  const list = document.getElementById('pl-scripts-list');
+  list.style.display = checked ? 'flex' : 'none';
+}
+
+async function executePipeline() {
+  const capture = document.getElementById('pl-task-capture').checked;
+  const scriptsEnabled = document.getElementById('pl-task-scripts').checked;
+  const compare = document.getElementById('pl-task-compare').checked;
+  const report = document.getElementById('pl-task-report').checked;
+
+  // Gather selected scripts
+  const selectedScripts = [];
+  if (scriptsEnabled) {
+    document.querySelectorAll('#pl-scripts-list input[type="checkbox"]:checked').forEach(cb => {
+      selectedScripts.push(cb.dataset.scriptName);
+    });
+  }
+
+  const resumeEl = document.getElementById('pl-resume-toggle');
+  const resume = resumeEl ? resumeEl.checked : false;
+
+  closePipelinePanel();
+
+  apiPost('pipeline', {
+    tasks: { capture, scripts: selectedScripts, compare, report },
+    resume,
+  });
+}
+
+// ============================================
+// RUNS MANAGEMENT PANEL
+// ============================================
+function openRunsPanel() {
+  // Close pipeline panel if open
+  closePipelinePanel();
+  document.getElementById('main-content-row').classList.add('runs-open');
+  loadRunsPanel();
+}
+
+function closeRunsPanel() {
+  document.getElementById('main-content-row').classList.remove('runs-open');
+}
+
+async function loadRunsPanel() {
+  const container = document.getElementById('runs-panel-body');
+  try {
+    const res = await fetch(`/api/runs?app=${appSelect.value}`);
+    const data = await res.json();
+    const runs = data.runs || [];
+
+    if (runs.length === 0) {
+      container.innerHTML = '<div class="runs-empty">No runs for this app</div>';
+      return;
+    }
+
+    // Show newest first
+    const sorted = [...runs].reverse();
+    container.innerHTML = sorted.map(r => {
+      const envCls = r.environment || '';
+      const statusCls = r.status || 'running';
+      const ts = r.timestamp ? new Date(r.timestamp).toLocaleString() : '';
+      const isIncomplete = r.status === 'running' || r.status === 'failed' || r.status === 'cancelled';
+      return `
+        <div class="run-card">
+          <div class="run-card-top">
+            <span class="run-card-id">${r.runId}</span>
+            <span class="run-card-env ${envCls}">${(r.environment || '').toUpperCase()}</span>
+          </div>
+          <div class="run-card-meta">
+            <span class="run-card-status ${statusCls}">${r.status}</span>
+            <span>${ts}</span>
+          </div>
+          <div class="run-card-actions">
+            ${isIncomplete ? `<button class="run-action-btn" onclick="rerunCapture('${r.app || appSelect.value}','${r.environment}','${r.runId}')">Re-run</button>` : ''}
+            <button class="run-action-btn danger" onclick="deleteRunAction('${r.app || appSelect.value}','${r.environment}','${r.runId}')">Delete</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch {
+    container.innerHTML = '<div class="runs-empty">Error loading runs</div>';
+  }
+}
+
+async function deleteRunAction(app, env, runId) {
+  if (!confirm(`Delete run ${runId} (${env})? This removes all screenshots.`)) return;
+  try {
+    await apiFetch('/api/runs/delete', 'DELETE', { app, env, runId });
+    appendLog(`Deleted run ${runId} (${env})`, 'log-warn');
+    loadRunsPanel();
+    loadRuns(); // refresh sidebar too
+  } catch (err) {
+    appendLog(`Failed to delete run: ${err.message || err}`, 'log-error');
+  }
+}
+
+async function rerunCapture(app, env, runId) {
+  if (isRunning) { appendLog('A process is already running', 'log-warn'); return; }
+  closeRunsPanel();
+  try {
+    await apiFetch('/api/runs/rerun', 'POST', { app, env, runId });
+  } catch (err) {
+    appendLog(`Failed to start re-run: ${err.message || err}`, 'log-error');
+  }
 }
 
 // ============================================
@@ -1669,11 +2291,13 @@ document.getElementById('compare-modal')?.addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeCompareModal();
 });
 
-// Close modals on Escape
+// Close modals + panels on Escape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeScriptEditor();
     closeCompareModal();
+    closePipelinePanel();
+    closeRunsPanel();
   }
 });
 

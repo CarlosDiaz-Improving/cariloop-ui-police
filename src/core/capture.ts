@@ -161,9 +161,14 @@ async function capturePages(
   appName: string,
   runId: string,
   interactionLog: InteractionLog,
-  captureInteractionsEnabled: boolean = true
+  captureInteractionsEnabled: boolean = true,
+  shouldStop?: () => boolean,
 ): Promise<void> {
   for (const pagePath of pages) {
+    if (shouldStop?.()) {
+      log.warning(`Stop requested — halting page capture for ${envName}`);
+      return;
+    }
     const alreadyCaptured = isPageCaptured(manifest, envName, pagePath);
     
     if (!alreadyCaptured) {
@@ -237,6 +242,7 @@ async function captureEnvironment(
   appName: string,
   manifest: ProgressManifest,
   interactionLog: InteractionLog,
+  shouldStop?: () => boolean,
 ): Promise<{ pages: string[]; runId: string }> {
   const appConfig = getCurrentAppConfig();
 
@@ -294,7 +300,7 @@ async function captureEnvironment(
       saveProgress(manifest);
     }
 
-    await capturePages(page, pages, env.baseUrl, outputDir, manifest, env.name, appName, run.runId, interactionLog);
+    await capturePages(page, pages, env.baseUrl, outputDir, manifest, env.name, appName, run.runId, interactionLog, true, shouldStop);
 
     // Run registration flow for auth app if enabled
     if (!appConfig.requiresAuth && appConfig.name === "auth") {
@@ -329,7 +335,8 @@ async function captureEnvironment(
  */
 export async function captureAll(
   manifest?: ProgressManifest,
-  interactionLog?: InteractionLog
+  interactionLog?: InteractionLog,
+  shouldStop?: () => boolean,
 ): Promise<{ pages: string[]; manifest: ProgressManifest; log: InteractionLog; runIds: Record<string, string> }> {
   const m = manifest ?? createFreshManifest();
   const l = interactionLog ?? createFreshLog();
@@ -342,8 +349,12 @@ export async function captureAll(
   console.log(`  ${style.muted(`Environments: ${envNames.join(", ")}`)}\n`);
 
   for (const env of environments) {
+    if (shouldStop?.()) {
+      log.warning("Stop requested — halting capture between environments");
+      break;
+    }
     try {
-      const result = await captureEnvironment(env, appName, m, l);
+      const result = await captureEnvironment(env, appName, m, l, shouldStop);
       runIds[env.name] = result.runId;
       if (discoveredPages.length === 0) {
         discoveredPages = result.pages;

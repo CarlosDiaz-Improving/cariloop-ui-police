@@ -20,7 +20,7 @@ import {
   getCurrentApp,
   getAllApps,
 } from "./core/config";
-import { listRuns, getLatestRun, loadRunManifest, getAppDir, getDiffPairDir } from "./core/runs";
+import { listRuns, getLatestRun, loadRunManifest, getAppDir, getDiffPairDir, deleteRun, cancelRun } from "./core/runs";
 import {
   listScripts,
   getScriptContent,
@@ -28,6 +28,7 @@ import {
   updateScript,
   deleteScript,
   runScript,
+  executeSelectedScripts,
   stopRecording,
   isCodegenRunning,
 } from "./core/recorder";
@@ -56,6 +57,7 @@ import { createFreshLog } from "./core/logger";
 
 let isRunning = false;
 let currentPhase = "idle";
+let shouldStop = false;
 
 // ============================================
 // DASHBOARD HTML
@@ -106,6 +108,58 @@ function handleGetRuns(url: URL): Response {
   const app = url.searchParams.get("app");
   const runs = listRuns(app ?? undefined);
   return jsonResponse({ runs });
+}
+
+/** DELETE /api/runs/delete — remove a specific run */
+async function handleDeleteRun(req: Request): Promise<Response> {
+  const body = (await req.json()) as { app: string; env: string; runId: string };
+  if (!body.app || !body.env || !body.runId) return errorResponse("Missing app, env, or runId");
+
+  const ok = deleteRun(body.app, body.env, body.runId);
+  if (!ok) return errorResponse("Run not found", 404);
+  return jsonResponse({ message: "Run deleted", app: body.app, env: body.env, runId: body.runId });
+}
+
+/** POST /api/runs/rerun — re-run capture for a specific app+env (cancels incomplete run first) */
+async function handleRerunCapture(req: Request): Promise<Response> {
+  if (isRunning) return errorResponse("A process is already running", 409);
+
+  const body = (await req.json()) as { app: string; env: string; runId?: string };
+  if (!body.app || !body.env) return errorResponse("Missing app or env");
+
+  // If a specific incomplete runId was given, cancel it so a fresh one starts
+  if (body.runId) {
+    cancelRun(body.app, body.env, body.runId);
+  }
+
+  setCurrentApp(body.app);
+  isRunning = true;
+  shouldStop = false;
+  currentPhase = "capturing";
+
+  startIntercepting();
+  broadcastStatus({ phase: "capturing", app: body.app });
+
+  (async () => {
+    try {
+      broadcastLog(`\n═══ Re-running capture for ${body.app}/${body.env} ═══`);
+      const result = await captureAll(undefined, undefined, () => shouldStop);
+      broadcastDone({
+        success: true,
+        phase: "capture",
+        detail: `Re-capture complete for ${body.env}`,
+      });
+    } catch (err: any) {
+      broadcastDone({ success: false, phase: "capture", detail: err.message });
+    } finally {
+      isRunning = false;
+      currentPhase = "idle";
+      shouldStop = false;
+      stopIntercepting();
+    }
+  })();
+
+  return jsonResponse({ message: "Re-run started", app: body.app, env: body.env });
 }
 
 /** GET /api/scripts?app=xxx */
@@ -219,55 +273,129 @@ async function handleReport(req: Request): Promise<Response> {
   return jsonResponse({ message: "Report generation started", app });
 }
 
-/** POST /api/pipeline — full capture → compare → report */
+/** POST /api/pipeline — task-based pipeline with stop/resume support */
 async function handlePipeline(req: Request): Promise<Response> {
   if (isRunning) return errorResponse("A process is already running", 409);
 
-  const body = (await req.json()) as { app?: string };
+  const body = (await req.json()) as {
+    app?: string;
+    tasks?: { capture?: boolean; scripts?: string[]; compare?: boolean; report?: boolean };
+    resume?: boolean;
+  };
   const app = body.app ?? getCurrentApp();
+  const tasks = body.tasks ?? { capture: true, scripts: [], compare: true, report: true };
+  const resume = body.resume ?? false;
 
   setCurrentApp(app);
   isRunning = true;
-  currentPhase = "capturing";
+  shouldStop = false;
+  currentPhase = "pipeline";
 
   startIntercepting();
-  broadcastStatus({ phase: "capturing", app });
+  broadcastStatus({ phase: "pipeline", app });
 
   (async () => {
+    let stepNum = 0;
+    const totalSteps = [tasks.capture, (tasks.scripts && tasks.scripts.length > 0), tasks.compare, tasks.report].filter(Boolean).length;
+    let captureResult: { runIds: Record<string, string> } | null = null;
+
     try {
-      // Step 1: Capture
-      broadcastLog("═══ Step 1: Capturing screenshots ═══");
-      deleteProgress();
-      const captureResult = await captureAll();
+      // Step: Capture
+      if (tasks.capture && !shouldStop) {
+        stepNum++;
+        currentPhase = "capturing";
+        broadcastStatus({ phase: "capturing", app });
+        broadcastLog(`\n═══ Step ${stepNum}/${totalSteps}: Capturing screenshots${resume ? " (resuming)" : ""} ═══`);
 
-      // Step 2: Compare
-      currentPhase = "comparing";
-      broadcastStatus({ phase: "comparing", app });
-      broadcastLog("\n═══ Step 2: Comparing screenshots ═══");
-      const results = compareScreenshots([]);
+        if (!resume) deleteProgress();
+        captureResult = await captureAll(undefined, undefined, () => shouldStop);
+      }
 
-      // Step 3: Report
-      currentPhase = "reporting";
-      broadcastStatus({ phase: "reporting", app });
-      broadcastLog("\n═══ Step 3: Generating report ═══");
-      const reportPath = generateReport(results);
-      generateMainIndex();
+      if (shouldStop) { broadcastDone({ success: false, phase: "pipeline", detail: "Stopped by user after capture" }); return; }
 
+      // Step: Scripts
+      if (tasks.scripts && tasks.scripts.length > 0 && !shouldStop) {
+        stepNum++;
+        currentPhase = "script";
+        broadcastStatus({ phase: "script", app });
+        broadcastLog(`\n═══ Step ${stepNum}/${totalSteps}: Running ${tasks.scripts.length} script(s) ═══`);
+        await executeSelectedScripts(app, tasks.scripts);
+      }
+
+      if (shouldStop) { broadcastDone({ success: false, phase: "pipeline", detail: "Stopped by user after scripts" }); return; }
+
+      // Step: Compare
+      if (tasks.compare && !shouldStop) {
+        stepNum++;
+        currentPhase = "comparing";
+        broadcastStatus({ phase: "comparing", app });
+        broadcastLog(`\n═══ Step ${stepNum}/${totalSteps}: Comparing screenshots ═══`);
+        compareScreenshots([]);
+      }
+
+      if (shouldStop) { broadcastDone({ success: false, phase: "pipeline", detail: "Stopped by user after compare" }); return; }
+
+      // Step: Report
+      if (tasks.report && !shouldStop) {
+        stepNum++;
+        currentPhase = "reporting";
+        broadcastStatus({ phase: "reporting", app });
+        broadcastLog(`\n═══ Step ${stepNum}/${totalSteps}: Generating report ═══`);
+        const results = compareScreenshots([]);
+        const reportPath = generateReport(results);
+        generateMainIndex();
+      }
+
+      const envCount = captureResult ? Object.keys(captureResult.runIds).length : 0;
       broadcastDone({
         success: true,
         phase: "pipeline",
-        detail: `${Object.keys(captureResult.runIds).length} envs, ${results.length} pages compared, report at ${reportPath}`,
+        detail: `${totalSteps} tasks completed${envCount > 0 ? `, ${envCount} envs captured` : ""}`,
       });
     } catch (err: any) {
       broadcastDone({ success: false, phase: "pipeline", detail: err.message });
     } finally {
       isRunning = false;
       currentPhase = "idle";
+      shouldStop = false;
       stopIntercepting();
     }
   })();
 
-  return jsonResponse({ message: "Pipeline started", app });
+  return jsonResponse({ message: "Pipeline started", app, tasks });
+}
+
+/** POST /api/pipeline/stop — signal the pipeline to stop between tasks */
+function handlePipelineStop(): Response {
+  if (!isRunning) return errorResponse("No pipeline running", 400);
+  shouldStop = true;
+  broadcastLog("\n⚠ Stop requested — pipeline will halt after the current task completes...");
+  return jsonResponse({ message: "Stop signal sent" });
+}
+
+/** GET /api/progress?app=xxx — check if resumable progress exists */
+function handleGetProgress(url: URL): Response {
+  const app = url.searchParams.get("app") ?? getCurrentApp();
+  setCurrentApp(app);
+  const progress = loadProgress();
+  if (!progress) {
+    return jsonResponse({ hasProgress: false });
+  }
+
+  return jsonResponse({
+    hasProgress: true,
+    discoveredPages: progress.discoveredPages.length,
+    environments: Object.fromEntries(
+      Object.entries(progress.environments).map(([env, data]) => [
+        env,
+        {
+          capturedPages: data.capturedPages.length,
+          complete: data.complete,
+          lastUpdated: data.lastUpdated,
+        },
+      ])
+    ),
+  });
 }
 
 /** POST /api/report/index — regenerate just the main reports index */
@@ -549,6 +677,8 @@ const server = Bun.serve({
     // API routes
     if (url.pathname === "/api/config" && req.method === "GET") return handleGetConfig();
     if (url.pathname === "/api/runs" && req.method === "GET") return handleGetRuns(url);
+    if (url.pathname === "/api/runs/delete" && req.method === "DELETE") return handleDeleteRun(req);
+    if (url.pathname === "/api/runs/rerun" && req.method === "POST") return handleRerunCapture(req);
     if (url.pathname === "/api/scripts" && req.method === "GET") return handleGetScripts(url);
     if (url.pathname === "/api/scripts/read" && req.method === "GET") return handleGetScriptContent(url);
     if (url.pathname === "/api/scripts/save" && req.method === "POST") return handleSaveScript(req);
@@ -562,6 +692,8 @@ const server = Bun.serve({
     if (url.pathname === "/api/report/index" && req.method === "POST") return handleReportIndex(req);
     if (url.pathname === "/api/report" && req.method === "POST") return handleReport(req);
     if (url.pathname === "/api/pipeline" && req.method === "POST") return handlePipeline(req);
+    if (url.pathname === "/api/pipeline/stop" && req.method === "POST") return handlePipelineStop();
+    if (url.pathname === "/api/progress" && req.method === "GET") return handleGetProgress(url);
     if (url.pathname === "/api/codegen" && req.method === "POST") return handleCodegen(req);
     if (url.pathname === "/api/codegen/stop" && req.method === "POST") return handleCodegenStop(req);
     if (url.pathname === "/api/compare/custom" && req.method === "POST") return handleCompareCustom(req);
