@@ -41,10 +41,10 @@ export async function discoverPages(page: Page): Promise<string[]> {
   // Deduplicate and remove fragments/query params (already handled by URL parsing)
   const unique = [...new Set(links)].sort();
 
-  // For apps with skipLogin (auth), most pages aren't linked from a single page.
-  // Always merge discovered links with the full fallback list so every configured
-  // page gets captured.
-  if (appConfig.skipLogin) {
+  // For apps that don't require auth (e.g., auth app), most pages aren't linked
+  // from a single page. Always merge discovered links with the full fallback list
+  // so every configured page gets captured.
+  if (!appConfig.requiresAuth) {
     const fallback = getFallbackPages();
     const merged = [...new Set([...unique, ...fallback])].sort();
     log.success(`Discovered ${unique.length} links, merged with ${fallback.length} fallback pages → ${merged.length} total`);

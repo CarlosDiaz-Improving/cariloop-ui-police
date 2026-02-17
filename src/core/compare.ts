@@ -2,9 +2,15 @@ import fs from "fs";
 import path from "path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { environments, getScreenshotsDir } from "./config";
+import { environments, getCurrentApp } from "./config";
+import {
+  getRunDir,
+  getDiffPairDir,
+  getLatestCompletedRun,
+  loadRunManifest,
+} from "./runs";
 import { log, style, symbols } from "../utils/terminal";
-import { parseFilename } from "../utils/paths";
+import { parseFilename, pageSlug } from "../utils/paths";
 
 export interface ComparisonResult {
   pagePath: string;
@@ -12,9 +18,14 @@ export interface ComparisonResult {
   diffPixels: number;
   totalPixels: number;
   diffPercentage: number;
-  devScreenshot: string;
-  localScreenshot: string;
+  /** Path to the first source screenshot */
+  env1Screenshot: string;
+  /** Path to the second source screenshot */
+  env2Screenshot: string;
   diffScreenshot: string;
+  /** Labels for display */
+  env1Label: string;
+  env2Label: string;
   /** If this is an interaction, the interaction ID */
   interactionId?: string;
   /** Human-readable description for interactions */
@@ -30,9 +41,7 @@ function resizeToMatch(img: PNG, targetWidth: number, targetHeight: number): PNG
   if (img.width === targetWidth && img.height === targetHeight) return img;
 
   const resized = new PNG({ width: targetWidth, height: targetHeight });
-  // Fill with white background
   resized.data.fill(255);
-  // Copy existing pixels
   for (let y = 0; y < Math.min(img.height, targetHeight); y++) {
     for (let x = 0; x < Math.min(img.width, targetWidth); x++) {
       const srcIdx = (y * img.width + x) * 4;
@@ -52,90 +61,81 @@ function getDiffStyle(pct: number): (text: string) => string {
   return style.error;
 }
 
-export function compareScreenshots(pages: string[]): ComparisonResult[] {
-  const screenshotsDir = getScreenshotsDir();
-  // Use actual environment names from config (e.g. "develop", "local")
-  const [env1, env2] = environments;
-  const devDir = path.join(screenshotsDir, env1!.name);
-  const localDir = path.join(screenshotsDir, env2!.name);
-  const diffDir = path.join(screenshotsDir, "diff");
+function listPngs(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith(".png"));
+}
 
+/**
+ * Core comparison engine — compares two directories of screenshots,
+ * writing diff images to the specified output directory.
+ */
+function compareDirs(
+  dir1: string,
+  dir2: string,
+  diffDir: string,
+  label1: string,
+  label2: string,
+): ComparisonResult[] {
   if (!fs.existsSync(diffDir)) fs.mkdirSync(diffDir, { recursive: true });
+
+  const files1 = listPngs(dir1);
+  const files2 = listPngs(dir2);
+
+  // Build slug → filename maps (filenames are identical slug.png in both dirs)
+  const set1 = new Set(files1);
+  const set2 = new Set(files2);
+  const allFiles = new Set([...files1, ...files2]);
 
   const results: ComparisonResult[] = [];
 
-  // Get all screenshot files from dev directory (includes interactions)
-  const allDevFiles = fs.existsSync(devDir)
-    ? fs.readdirSync(devDir).filter((f) => f.endsWith(".png"))
-    : [];
+  log.header(`Comparing: ${label1} vs ${label2}`);
+  console.log(`  ${style.muted(`Files to compare: ${allFiles.size}`)}\n`);
 
-  // Build set of files to compare
-  const filesToCompare = new Set<string>();
-  
-  // Add base page screenshots
-  for (const pagePath of pages) {
-    const filename = pagePath.replace(/^\//, "").replace(/\//g, "-") + ".png";
-    filesToCompare.add(filename);
-  }
-  
-  // Add all interaction screenshots (files with __ in the name)
-  for (const file of allDevFiles) {
-    if (file.includes("__")) {
-      filesToCompare.add(file);
-    }
-  }
-
-  log.header("Comparing Screenshots");
-  console.log(`  ${style.muted(`Files to compare: ${filesToCompare.size}`)}\n`);
-
-  for (const filename of filesToCompare) {
-    const devPath = path.join(devDir, filename);
-    const localPath = path.join(localDir, filename);
-    const diffPath = path.join(diffDir, filename);
-
-    if (!fs.existsSync(devPath) || !fs.existsSync(localPath)) {
-      // Only log for base pages, not for interactions that might not exist
+  for (const filename of [...allFiles].sort()) {
+    if (!set1.has(filename) || !set2.has(filename)) {
       if (!filename.includes("__")) {
-        log.warning(`Skipping ${filename}: missing screenshot(s)`);
+        const missing = !set1.has(filename) ? label1 : label2;
+        log.warning(`Skipping ${filename}: missing in ${missing}`);
       }
       continue;
     }
 
-    // Parse pagePath and interactionId from filename
+    const path1 = path.join(dir1, filename);
+    const path2 = path.join(dir2, filename);
+    if (!fs.existsSync(path1) || !fs.existsSync(path2)) continue;
+
     const parsed = parseFilename(filename);
     const { pagePath, interactionId } = parsed;
-    
+
     if (interactionId) {
       console.log(`  ${symbols.tee} ${style.path(pagePath)} ${style.muted(`[${interactionId}]`)}`);
     } else {
       console.log(`  ${symbols.tee} ${style.path(pagePath)}`);
     }
 
-    let devImg = readPng(devPath);
-    let localImg = readPng(localPath);
+    let img1 = readPng(path1);
+    let img2 = readPng(path2);
 
-    // Resize to the larger dimensions if they differ
-    const maxWidth = Math.max(devImg.width, localImg.width);
-    const maxHeight = Math.max(devImg.height, localImg.height);
-    devImg = resizeToMatch(devImg, maxWidth, maxHeight);
-    localImg = resizeToMatch(localImg, maxWidth, maxHeight);
+    const maxWidth = Math.max(img1.width, img2.width);
+    const maxHeight = Math.max(img1.height, img2.height);
+    img1 = resizeToMatch(img1, maxWidth, maxHeight);
+    img2 = resizeToMatch(img2, maxWidth, maxHeight);
 
     const diff = new PNG({ width: maxWidth, height: maxHeight });
     const diffPixels = pixelmatch(
-      devImg.data,
-      localImg.data,
+      img1.data,
+      img2.data,
       diff.data,
       maxWidth,
       maxHeight,
-      {
-        threshold: 0.1,
-        diffColor: [255, 0, 0],
-      }
+      { threshold: 0.1, diffColor: [255, 0, 0] }
     );
 
     const totalPixels = maxWidth * maxHeight;
     const diffPercentage = (diffPixels / totalPixels) * 100;
 
+    const diffPath = path.join(diffDir, filename);
     fs.writeFileSync(diffPath, PNG.sync.write(diff));
 
     results.push({
@@ -144,9 +144,11 @@ export function compareScreenshots(pages: string[]): ComparisonResult[] {
       diffPixels,
       totalPixels,
       diffPercentage,
-      devScreenshot: devPath,
-      localScreenshot: localPath,
+      env1Screenshot: path1,
+      env2Screenshot: path2,
       diffScreenshot: diffPath,
+      env1Label: label1,
+      env2Label: label2,
       interactionId,
       description: interactionId ? `Interaction: ${interactionId}` : undefined,
     });
@@ -158,20 +160,75 @@ export function compareScreenshots(pages: string[]): ComparisonResult[] {
   return results;
 }
 
+// ============================================
+// PUBLIC API
+// ============================================
+
+/**
+ * Cross-environment comparison using the latest completed run of each env.
+ * e.g., captures/auth/develop/260217-001/ vs captures/auth/local/260217-001/
+ * Diffs go to captures/auth/diffs/develop-vs-local/
+ */
+export function compareCrossEnv(
+  app: string,
+  env1: string,
+  env1RunId: string,
+  env2: string,
+  env2RunId: string,
+): ComparisonResult[] {
+  const dir1 = getRunDir(app, env1, env1RunId);
+  const dir2 = getRunDir(app, env2, env2RunId);
+  const diffLabel = `${env1}-vs-${env2}`;
+  const diffDir = getDiffPairDir(app, diffLabel);
+
+  return compareDirs(dir1, dir2, diffDir, `${env1} (${env1RunId})`, `${env2} (${env2RunId})`);
+}
+
+/**
+ * Cross-run comparison for the same environment.
+ * e.g., captures/auth/develop/260217-002/ vs captures/auth/develop/260217-001/
+ * Diffs go to captures/auth/diffs/develop-260217-002-vs-001/
+ */
+export function compareCrossRun(
+  app: string,
+  env: string,
+  currentRunId: string,
+  previousRunId: string,
+): ComparisonResult[] {
+  const dir1 = getRunDir(app, env, currentRunId);
+  const dir2 = getRunDir(app, env, previousRunId);
+  const diffLabel = `${env}-${currentRunId}-vs-${previousRunId}`;
+  const diffDir = getDiffPairDir(app, diffLabel);
+
+  return compareDirs(dir1, dir2, diffDir, `${env} (${currentRunId})`, `${env} (${previousRunId})`);
+}
+
+/**
+ * Default comparison — latest completed run per env, cross-env diff.
+ * This is what the main flow calls.
+ */
+export function compareScreenshots(pages: string[]): ComparisonResult[] {
+  const appName = getCurrentApp();
+  const [env1, env2] = environments;
+  if (!env1 || !env2) {
+    log.error("Need at least 2 environments configured for comparison");
+    return [];
+  }
+
+  const run1 = getLatestCompletedRun(appName, env1.name);
+  const run2 = getLatestCompletedRun(appName, env2.name);
+
+  if (!run1 || !run2) {
+    const missing = !run1 ? env1.name : env2.name;
+    log.error(`No completed runs found for ${appName}/${missing}. Run capture first.`);
+    return [];
+  }
+
+  return compareCrossEnv(appName, env1.name, run1.runId, env2.name, run2.runId);
+}
+
 // Allow running standalone
 if (import.meta.main) {
-  // Discover pages from existing dev screenshots
-  const [env1] = environments;
-  const devDir = path.join(getScreenshotsDir(), env1!.name);
-  if (!fs.existsSync(devDir)) {
-    log.error(`No ${env1!.name} screenshots found. Run capture first.`);
-    process.exit(1);
-  }
-  const files = fs.readdirSync(devDir).filter((f) => f.endsWith(".png"));
-  const pages = files
-    .filter((f) => !f.includes("__"))
-    .map((f) => "/" + f.replace(".png", "").replace(/-/g, "/"));
-
-  const results = compareScreenshots(pages);
+  const results = compareScreenshots([]);
   log.success(`Compared ${results.length} items.`);
 }

@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import path from "path";
-import { getScreenshotsDir, environments } from "./config";
-import { pathToFilename, interactionFilename } from "../utils/paths";
+import { environments, getCurrentApp } from "./config";
+import { getAppDir } from "./runs";
 
 function getProgressFile(): string {
-  return path.join(getScreenshotsDir(), "progress.json");
+  return path.join(getAppDir(getCurrentApp()), "progress.json");
 }
 
 export interface EnvironmentProgress {
@@ -92,10 +92,7 @@ export function isPageCaptured(
 ): boolean {
   const env = manifest.environments[envName];
   if (!env) return false;
-  if (!env.capturedPages.includes(pagePath)) return false;
-  // Also verify the file actually exists on disk
-  const filepath = path.join(getScreenshotsDir(), envName, pathToFilename(pagePath));
-  return existsSync(filepath);
+  return env.capturedPages.includes(pagePath);
 }
 
 export function isInteractionCaptured(
@@ -106,15 +103,11 @@ export function isInteractionCaptured(
 ): boolean {
   const env = manifest.environments[envName];
   if (!env) return false;
-  // Initialize capturedInteractions if not present (for backwards compatibility)
   if (!env.capturedInteractions) {
     env.capturedInteractions = {};
   }
   const interactions = env.capturedInteractions[pagePath] ?? [];
-  if (!interactions.includes(interactionId)) return false;
-  // Verify file exists on disk
-  const filepath = path.join(getScreenshotsDir(), envName, interactionFilename(pagePath, interactionId));
-  return existsSync(filepath);
+  return interactions.includes(interactionId);
 }
 
 export function markInteractionCaptured(

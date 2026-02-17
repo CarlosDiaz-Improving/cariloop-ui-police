@@ -259,10 +259,10 @@ export function printComparisonSummary(
 /**
  * Display app selection result
  */
-export function printAppSelected(displayName: string, screenshotsDir: string, pathPrefix: string) {
+export function printAppSelected(displayName: string, outputDir: string, pathPrefix: string) {
   console.log("");
   console.log(`  ${style.success(symbols.success)} Selected: ${style.bold(displayName)}`);
-  console.log(`    ${style.dim("Screenshots:")} ${style.path(screenshotsDir + "/")}`);
+  console.log(`    ${style.dim("Output:")} ${style.path(outputDir + "/")}`);
   console.log(`    ${style.dim("Path prefix:")} ${style.orange(pathPrefix || "(root)")}`);
   console.log("");
 }

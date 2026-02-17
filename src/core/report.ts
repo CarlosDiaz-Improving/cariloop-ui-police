@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
 import type { ComparisonResult } from "./compare";
-import { getReportsDir, getCurrentAppConfig, environments, APPS, APP_LIST, type AppConfig } from "./config";
+import { getReportsDir, getCurrentAppConfig, environments, APPS, APP_LIST, projectConfig, type AppConfig } from "./config";
+import { listRuns, loadRunManifest } from "./runs";
 import { log, style } from "../utils/terminal";
 
 function imageToBase64(filepath: string): string {
@@ -44,16 +45,18 @@ function groupResults(results: ComparisonResult[]): GroupedResult[] {
   );
 }
 
-function renderCard(r: ComparisonResult, title: string, isInteraction: boolean = false, cardId: string = "", devBaseUrl: string = "", localBaseUrl: string = ""): string {
-  const devB64 = imageToBase64(r.devScreenshot);
-  const localB64 = imageToBase64(r.localScreenshot);
+function renderCard(r: ComparisonResult, title: string, isInteraction: boolean = false, cardId: string = "", env1BaseUrl: string = "", env2BaseUrl: string = ""): string {
+  const env1B64 = imageToBase64(r.env1Screenshot);
+  const env2B64 = imageToBase64(r.env2Screenshot);
   const diffB64 = imageToBase64(r.diffScreenshot);
+  const env1Label = r.env1Label ?? "Environment 1";
+  const env2Label = r.env2Label ?? "Environment 2";
   const badgeClass = getBadgeClass(r.diffPercentage);
   const cardClass = isInteraction ? "card interaction-card" : "card";
   const headerClass = isInteraction ? "card-header interaction-header" : "card-header";
   
-  const devFullUrl = devBaseUrl ? `${devBaseUrl}${r.pagePath}` : "";
-  const localFullUrl = localBaseUrl ? `${localBaseUrl}${r.pagePath}` : "";
+  const env1FullUrl = env1BaseUrl ? `${env1BaseUrl}${r.pagePath}` : "";
+  const env2FullUrl = env2BaseUrl ? `${env2BaseUrl}${r.pagePath}` : "";
 
   return `
     <div class="${cardClass}" id="${cardId}">
@@ -61,13 +64,13 @@ function renderCard(r: ComparisonResult, title: string, isInteraction: boolean =
         <div class="card-title-group">
           <h2>${title}</h2>
           <div class="card-actions">
-            ${devFullUrl ? `<a href="${devFullUrl}" target="_blank" rel="noopener noreferrer" class="card-action-btn develop" title="Open in Develop">
+            ${env1FullUrl ? `<a href="${env1FullUrl}" target="_blank" rel="noopener noreferrer" class="card-action-btn develop" title="Open in ${env1Label}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              <span>Develop</span>
+              <span>${env1Label}</span>
             </a>` : ''}
-            ${localFullUrl ? `<a href="${localFullUrl}" target="_blank" rel="noopener noreferrer" class="card-action-btn local" title="Open in Local">
+            ${env2FullUrl ? `<a href="${env2FullUrl}" target="_blank" rel="noopener noreferrer" class="card-action-btn local" title="Open in ${env2Label}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              <span>Local</span>
+              <span>${env2Label}</span>
             </a>` : ''}
           </div>
         </div>
@@ -75,12 +78,12 @@ function renderCard(r: ComparisonResult, title: string, isInteraction: boolean =
       </div>
       <div class="card-images">
         <div class="image-col">
-          <h3>Develop</h3>
-          <img src="${devB64}" alt="Develop screenshot" loading="lazy" onclick="openModal(this, 0)" />
+          <h3>${env1Label}</h3>
+          <img src="${env1B64}" alt="${env1Label} screenshot" loading="lazy" onclick="openModal(this, 0)" />
         </div>
         <div class="image-col">
-          <h3>Local</h3>
-          <img src="${localB64}" alt="Local screenshot" loading="lazy" onclick="openModal(this, 1)" />
+          <h3>${env2Label}</h3>
+          <img src="${env2B64}" alt="${env2Label} screenshot" loading="lazy" onclick="openModal(this, 1)" />
         </div>
         <div class="image-col">
           <h3>Diff</h3>
@@ -108,11 +111,11 @@ export function generateReport(results: ComparisonResult[]): string {
       ? results.reduce((sum, r) => sum + r.diffPercentage, 0) / results.length
       : 0;
 
-  // Get environment URLs
-  const devEnv = environments.find(e => e.name === "develop");
-  const localEnv = environments.find(e => e.name === "local");
-  const devUrl = devEnv?.baseUrl ?? "N/A";
-  const localUrl = localEnv?.baseUrl ?? "N/A";
+  // Get environment URLs dynamically from the first result or config
+  const env1Name = results[0]?.env1Label ?? environments[0]?.name ?? "env1";
+  const env2Name = results[0]?.env2Label ?? environments[1]?.name ?? "env2";
+  const env1Url = environments.find(e => e.name === env1Name)?.baseUrl ?? "N/A";
+  const env2Url = environments.find(e => e.name === env2Name)?.baseUrl ?? "N/A";
 
   // Generate navigation menu items for expanded sidebar
   const navItems = grouped.map((group, idx) => {
@@ -146,7 +149,7 @@ export function generateReport(results: ComparisonResult[]): string {
       
       // Base page card
       if (group.base) {
-        html += renderCard(group.base, group.pagePath, false, cardId, devUrl, localUrl);
+        html += renderCard(group.base, group.pagePath, false, cardId, env1Url, env2Url);
       }
       
       // Interaction cards (nested)
@@ -160,7 +163,7 @@ export function generateReport(results: ComparisonResult[]): string {
         for (const interaction of group.interactions) {
           const title = `${interaction.interactionId}`;
           const interactionCardId = `${cardId}-${interaction.interactionId?.replace(/\s+/g, '-')}`;
-          html += renderCard(interaction, title, true, interactionCardId, devUrl, localUrl);
+          html += renderCard(interaction, title, true, interactionCardId, env1Url, env2Url);
         }
         
         html += `</div>`;
@@ -952,12 +955,12 @@ export function generateReport(results: ComparisonResult[]): string {
               Comparing Environments
             </div>
             <div class="env-row">
-              <span class="env-label develop">DEVELOP</span>
-              <a href="${devUrl}" target="_blank" rel="noopener noreferrer" class="env-url">${devUrl}</a>
+              <span class="env-label develop">${env1Name.toUpperCase()}</span>
+              <a href="${env1Url}" target="_blank" rel="noopener noreferrer" class="env-url">${env1Url}</a>
             </div>
             <div class="env-row">
-              <span class="env-label local">LOCAL</span>
-              <a href="${localUrl}" target="_blank" rel="noopener noreferrer" class="env-url">${localUrl}</a>
+              <span class="env-label local">${env2Name.toUpperCase()}</span>
+              <a href="${env2Url}" target="_blank" rel="noopener noreferrer" class="env-url">${env2Url}</a>
             </div>
           </div>
         </div>
@@ -1102,7 +1105,7 @@ export function generateReport(results: ComparisonResult[]): string {
  * Generate main index page showing all available app reports
  */
 export function generateMainIndex(): string {
-  const reportsBaseDir = "reports";
+  const reportsBaseDir = "output/reports";
   
   if (!fs.existsSync(reportsBaseDir)) {
     fs.mkdirSync(reportsBaseDir, { recursive: true });
@@ -1124,7 +1127,7 @@ export function generateMainIndex(): string {
   }
   
   const appReports: AppReport[] = APP_LIST.map(appType => {
-    const config = APPS[appType];
+    const config = APPS[appType]!;
     const reportDir = path.join(reportsBaseDir, `cariloop-${appType}`);
     const reportPath = path.join(reportDir, "index.html");
     const hasReport = fs.existsSync(reportPath);
@@ -1140,11 +1143,14 @@ export function generateMainIndex(): string {
         size: formatBytes(stat.size),
       };
       
-      // Count screenshots to estimate pages
-      const screenshotsDir = path.join("screenshots", `cariloop-${appType}`, "develop");
-      if (fs.existsSync(screenshotsDir)) {
-        const files = fs.readdirSync(screenshotsDir).filter(f => f.endsWith(".png") && !f.includes("__"));
-        stats.pages = files.length;
+      // Count pages from run manifest
+      const runs = listRuns(appType);
+      const latestCompleted = runs.filter(r => r.status === "completed").pop();
+      if (latestCompleted) {
+        const manifest = loadRunManifest(appType, latestCompleted.environment, latestCompleted.runId);
+        if (manifest) {
+          stats.pages = manifest.pageCount;
+        }
       }
     }
     
@@ -1599,18 +1605,6 @@ function getAppIcon(appType: string): string {
 // Allow running standalone
 if (import.meta.main) {
   const { compareScreenshots } = await import("./compare");
-  const { environments, getScreenshotsDir } = await import("./config");
-  
-  const [env1] = environments;
-  const screenshotsDevDir = path.join(getScreenshotsDir(), env1!.name);
-  if (!fs.existsSync(screenshotsDevDir)) {
-    log.error(`No ${env1!.name} screenshots found. Run capture and compare first.`);
-    process.exit(1);
-  }
-  const files = fs.readdirSync(screenshotsDevDir).filter((f) => f.endsWith(".png"));
-  const pages = files
-    .filter((f) => !f.includes("__"))
-    .map((f) => "/" + f.replace(".png", "").replace(/-/g, "/"));
-  const results = compareScreenshots(pages);
+  const results = compareScreenshots([]);
   generateReport(results);
 }

@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
-import { getScreenshotsDir } from "./config";
+import { getCurrentApp } from "./config";
+import { getAppDir } from "./runs";
 
 function getLogFile(): string {
-  return path.join(getScreenshotsDir(), "interaction-log.json");
+  return path.join(getAppDir(getCurrentApp()), "interaction-log.json");
 }
 
 export type LogStatus = "success" | "failed" | "skipped";
@@ -204,7 +205,7 @@ function generateFailureReport(log: InteractionLog): string {
  * Save failure report to file
  */
 export function saveFailureReport(log: InteractionLog): string {
-  const reportPath = path.join(getScreenshotsDir(), "failure-report.md");
+  const reportPath = path.join(getAppDir(getCurrentApp()), "failure-report.md");
   const content = generateFailureReport(log);
   writeFileSync(reportPath, content, "utf-8");
   return reportPath;

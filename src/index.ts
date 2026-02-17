@@ -8,11 +8,13 @@ import { compareScreenshots } from "./core/compare";
 import { generateReport, generateMainIndex } from "./core/report";
 import { 
   environments,
-  getScreenshotsDir, 
+  getOutputDir, 
   setCurrentApp, 
+  getCurrentApp,
   getCurrentAppConfig,
   APPS,
-  type AppType 
+  APP_LIST,
+  projectConfig,
 } from "./core/config";
 import {
   loadProgress,
@@ -25,6 +27,8 @@ import {
   loadLog,
   type InteractionLog,
 } from "./core/logger";
+import { listRuns, getTotalRuns, getLatestRun, getAppDir, loadRunManifest } from "./core/runs";
+import { startRecording, saveRecordedScript, listScripts } from "./core/recorder";
 
 // Utils imports
 import { 
@@ -39,18 +43,16 @@ import {
   symbols 
 } from "./utils/terminal";
 
-type RunMode = "fresh" | "resume" | "compare-only" | "retry-failed";
-
-const APP_CHOICES: AppType[] = ["admin", "plan", "coach", "auth"];
+type RunMode = "fresh" | "resume" | "compare-only" | "retry-failed" | "record";
 
 function promptUser(question: string): string {
   const answer = prompt(question);
   return answer?.trim() ?? "";
 }
 
-function selectApp(): AppType {
-  const options = APP_CHOICES.map((app, index) => {
-    const config = APPS[app];
+function selectApp(): string {
+  const options = APP_LIST.map((app, index) => {
+    const config = APPS[app]!;
     return { key: (index + 1).toString(), label: config.displayName };
   });
   
@@ -59,37 +61,49 @@ function selectApp(): AppType {
   const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
   const index = parseInt(choice || "1", 10) - 1;
   
-  if (index >= 0 && index < APP_CHOICES.length) {
-    return APP_CHOICES[index]!;
+  if (index >= 0 && index < APP_LIST.length) {
+    return APP_LIST[index]!;
   }
-  return "admin";
+  return APP_LIST[0] ?? "admin";
+}
+
+function selectEnvironment(): string {
+  const options = environments.map((env, index) => ({
+    key: (index + 1).toString(),
+    label: `${env.name} (${env.baseUrl})`,
+  }));
+
+  printMenu("Select environment", options);
+
+  const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
+  const index = parseInt(choice || "1", 10) - 1;
+
+  if (index >= 0 && index < environments.length) {
+    return environments[index]!.name;
+  }
+  return environments[0]?.name ?? "develop";
 }
 
 function discoverPagesFromDisk(): string[] {
-  const screenshotsDir = getScreenshotsDir();
-  const [env1] = environments;
-  const devDir = path.join(screenshotsDir, env1!.name);
-  if (!fs.existsSync(devDir)) return [];
-  const files = fs.readdirSync(devDir).filter((f) => f.endsWith(".png") && !f.includes("__"));
-  return files.map((f) => "/" + f.replace(".png", "").replace(/-/g, "/"));
+  // Try to discover pages from the latest completed run
+  const appName = getCurrentApp();
+  const appRuns = listRuns(appName);
+  const latestCompleted = appRuns.filter((r) => r.status === "completed").pop();
+  if (!latestCompleted) return [];
+  const manifest = loadRunManifest(appName, latestCompleted.environment, latestCompleted.runId);
+  if (!manifest) return [];
+  return manifest.screenshots
+    .filter((s) => !s.interactionId)
+    .map((s) => s.page);
 }
 
 function deleteAllScreenshots(): void {
-  const screenshotsDir = getScreenshotsDir();
-  const envDirs = environments.map((e) => e.name);
-  const dirs = [...envDirs, "diff"].map((d) => path.join(screenshotsDir, d));
-  for (const dir of dirs) {
-    if (fs.existsSync(dir)) {
-      fs.rmSync(dir, { recursive: true });
-    }
+  const appDir = getAppDir(getCurrentApp());
+  if (fs.existsSync(appDir)) {
+    fs.rmSync(appDir, { recursive: true });
   }
   deleteProgress();
-  // Also delete log files
-  const logFile = path.join(screenshotsDir, "interaction-log.json");
-  const reportFile = path.join(screenshotsDir, "failure-report.md");
-  if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
-  if (fs.existsSync(reportFile)) fs.unlinkSync(reportFile);
-  log.action("Cleared all screenshots, progress, and logs");
+  log.action("Cleared all captures, progress, and logs");
 }
 
 function printProgressSummary(manifest: ProgressManifest): void {
@@ -113,95 +127,71 @@ function printLogSummary(interactionLog: InteractionLog): void {
 }
 
 function determineRunMode(existing: ProgressManifest | null, existingLog: InteractionLog | null): RunMode {
-  if (!existing) {
-    log.step("No previous progress found. Starting fresh capture.");
-    return "fresh";
+  // Always show the main action menu
+  const appName = getCurrentApp();
+  const appRuns = listRuns(appName);
+  const totalRuns = getTotalRuns();
+
+  if (appRuns.length > 0) {
+    console.log(`  ${style.muted(`Run history: ${appRuns.length} runs for this app (${totalRuns} total)`)}\n`);
   }
 
-  printProgressSummary(existing);
-  
-  // Show log summary if exists
-  if (existingLog && existingLog.summary.total > 0) {
-    printLogSummary(existingLog);
-  }
-
-  if (allEnvironmentsComplete(existing)) {
-    // Check if there's a mismatch (e.g., dev has 21 pages but local only has 2)
-    if (hasEnvironmentMismatch(existing)) {
-      console.log(`${style.warning("⚠ Environments have different page counts!")}\n`);
-      console.log(`${style.muted("Some environments may need to capture more pages.")}\n`);
-      
-      const options = [
-        { key: "1", label: "Resume (continue capturing missing pages)" },
-        { key: "2", label: "Compare only (use whatever screenshots exist)" },
-        { key: "3", label: "Restart fresh (delete all and recapture)" },
-      ];
-      if (existingLog && existingLog.summary.failed > 0) {
-        options.push({ key: "4", label: "Retry failed interactions only" });
-      }
-      printMenu("What would you like to do?", options);
-      
-      const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
-      if (choice === "2") return "compare-only";
-      if (choice === "3") return "fresh";
-      if (choice === "4" && existingLog?.summary.failed) return "retry-failed";
-      return "resume";
-    }
-    
-    console.log(`${style.info("All environments were fully captured in a previous run.")}\n`);
-    
-    const options = [
-      { key: "1", label: "Compare only (skip capture)" },
-      { key: "2", label: "Restart fresh (delete all and recapture)" },
-    ];
-    if (existingLog && existingLog.summary.failed > 0) {
-      options.push({ key: "3", label: "Retry failed interactions only" });
-    }
-    printMenu("What would you like to do?", options.map((o, i) => ({ key: o.key, label: o.label })));
-    
-    const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
-    if (choice === "2") return "fresh";
-    if (choice === "3" && existingLog?.summary.failed) return "retry-failed";
-    return "compare-only";
-  }
-
-  // Partial progress
-  console.log(`${style.warning("Previous run was interrupted.")}\n`);
-  
   const options = [
-    { key: "1", label: "Resume (continue where it left off)" },
-    { key: "2", label: "Restart fresh (delete all and recapture)" },
-    { key: "3", label: "Compare only (use whatever screenshots exist)" },
+    { key: "1", label: "Capture screenshots (fresh run)" },
+    { key: "2", label: "Compare only (latest runs)" },
+    { key: "3", label: "Record custom script" },
   ];
-  if (existingLog && existingLog.summary.failed > 0) {
-    options.push({ key: "4", label: "Retry failed interactions only" });
+
+  if (existing) {
+    printProgressSummary(existing);
+    if (existingLog && existingLog.summary.total > 0) {
+      printLogSummary(existingLog);
+    }
+
+    if (!allEnvironmentsComplete(existing)) {
+      options.splice(1, 0, { key: "2", label: "Resume capture" });
+      // Re-number
+      options.forEach((o, i) => { o.key = (i + 1).toString(); });
+    }
+
+    if (existingLog && existingLog.summary.failed > 0) {
+      options.push({ key: (options.length + 1).toString(), label: "Retry failed interactions" });
+    }
   }
-  printMenu("What would you like to do?", options.map((o) => ({ key: o.key, label: o.label })));
-  
+
+  printMenu("What would you like to do?", options);
+
   const choice = promptUser(`Your choice ${style.muted("[1]")}: `);
-  if (choice === "2") return "fresh";
-  if (choice === "3") return "compare-only";
-  if (choice === "4" && existingLog?.summary.failed) return "retry-failed";
-  return "resume";
+  const selected = options.find((o) => o.key === (choice || "1"));
+
+  if (!selected) return "fresh";
+
+  if (selected.label.includes("fresh")) return "fresh";
+  if (selected.label.includes("Resume")) return "resume";
+  if (selected.label.includes("Compare")) return "compare-only";
+  if (selected.label.includes("Retry")) return "retry-failed";
+  if (selected.label.includes("Record")) return "record";
+
+  return "fresh";
 }
 
-async function runFresh(): Promise<{ pages: string[]; log: InteractionLog }> {
+async function runFresh(): Promise<{ pages: string[]; log: InteractionLog; runIds: Record<string, string> }> {
   deleteAllScreenshots();
   log.step("Step 1: Capturing screenshots...");
-  const { pages, log: interactionLog } = await captureAll();
-  return { pages, log: interactionLog };
+  const { pages, log: interactionLog, runIds } = await captureAll();
+  return { pages, log: interactionLog, runIds };
 }
 
-async function runResume(manifest: ProgressManifest, interactionLog: InteractionLog | null): Promise<{ pages: string[]; log: InteractionLog }> {
+async function runResume(manifest: ProgressManifest, interactionLog: InteractionLog | null): Promise<{ pages: string[]; log: InteractionLog; runIds: Record<string, string> }> {
   log.step("Step 1: Resuming screenshot capture...");
   const result = await captureAll(manifest, interactionLog ?? undefined);
-  return { pages: result.pages, log: result.log };
+  return { pages: result.pages, log: result.log, runIds: result.runIds };
 }
 
-async function runRetryFailed(manifest: ProgressManifest, existingLog: InteractionLog): Promise<{ pages: string[]; log: InteractionLog }> {
+async function runRetryFailed(manifest: ProgressManifest, existingLog: InteractionLog): Promise<{ pages: string[]; log: InteractionLog; runIds: Record<string, string> }> {
   log.step("Step 1: Retrying failed interactions...");
   const result = await captureAll(manifest, existingLog);
-  return { pages: result.pages, log: result.log };
+  return { pages: result.pages, log: result.log, runIds: result.runIds };
 }
 
 function runCompareOnly(manifest: ProgressManifest | null): { pages: string[]; log: InteractionLog | null } {
@@ -219,15 +209,39 @@ function runCompareOnly(manifest: ProgressManifest | null): { pages: string[]; l
   return { pages, log: null };
 }
 
+async function runRecorder(): Promise<void> {
+  const appName = getCurrentApp();
+  const envName = selectEnvironment();
+
+  const code = await startRecording(appName, envName);
+  if (!code) {
+    log.warning("No script was generated.");
+    return;
+  }
+
+  const name = promptUser(`Script name ${style.muted("[auto]")}: `) || undefined;
+  saveRecordedScript(appName, code, name);
+
+  // Show available scripts
+  const scripts = listScripts(appName);
+  if (scripts.length > 0) {
+    console.log(`\n  ${style.muted(`${scripts.length} script(s) available for ${appName}:`)}`);
+    for (const s of scripts) {
+      console.log(`    ${symbols.bullet} ${style.highlight(s.name)} — ${s.description}`);
+    }
+  }
+}
+
 async function main() {
   printBanner();
+  console.log(`  ${style.muted(`v${projectConfig.version}`)}\n`);
 
   // Step 0: Select app
   const selectedApp = selectApp();
   setCurrentApp(selectedApp);
   const appConfig = getCurrentAppConfig();
   
-  printAppSelected(appConfig.displayName, getScreenshotsDir(), appConfig.pathPrefix);
+  printAppSelected(appConfig.displayName, getAppDir(getCurrentApp()), appConfig.pathPrefix);
 
   // Show Minikube reminder for local environment testing
   printMinikubeReminder();
@@ -237,30 +251,44 @@ async function main() {
   const existingLog = loadLog();
   const mode = determineRunMode(existing, existingLog.summary.total > 0 ? existingLog : null);
 
+  // Handle recorder mode separately
+  if (mode === "record") {
+    await runRecorder();
+    return;
+  }
+
   let pages: string[];
   let interactionLog: InteractionLog | null = null;
+  let runIds: Record<string, string> = {};
 
   switch (mode) {
-    case "fresh":
+    case "fresh": {
       const freshResult = await runFresh();
       pages = freshResult.pages;
       interactionLog = freshResult.log;
+      runIds = freshResult.runIds;
       break;
-    case "resume":
+    }
+    case "resume": {
       const resumeResult = await runResume(existing!, existingLog.summary.total > 0 ? existingLog : null);
       pages = resumeResult.pages;
       interactionLog = resumeResult.log;
+      runIds = resumeResult.runIds;
       break;
-    case "retry-failed":
+    }
+    case "retry-failed": {
       const retryResult = await runRetryFailed(existing!, existingLog);
       pages = retryResult.pages;
       interactionLog = retryResult.log;
+      runIds = retryResult.runIds;
       break;
-    case "compare-only":
+    }
+    case "compare-only": {
       const compareResult = runCompareOnly(existing);
       pages = compareResult.pages;
       interactionLog = compareResult.log;
       break;
+    }
   }
 
   // Step 2: Compare screenshots
@@ -287,7 +315,7 @@ async function main() {
   if (interactionLog) {
     console.log(`\n  ${style.info("Interactions:")} ${style.success(`${symbols.check} ${interactionLog.summary.success}`)} success, ${style.error(`${symbols.cross} ${interactionLog.summary.failed}`)} failed`);
     if (interactionLog.summary.failed > 0) {
-      console.log(`  ${style.muted(`See: ${getScreenshotsDir()}/failure-report.md for details`)}`);
+      console.log(`  ${style.muted(`See: ${getAppDir(getCurrentApp())}/failure-report.md for details`)}`);
     }
   }
   
@@ -295,7 +323,7 @@ async function main() {
   
   // Open main index in browser
   log.action("Opening reports dashboard in browser...");
-  const mainIndexPath = path.resolve("reports/index.html");
+  const mainIndexPath = path.resolve("output/reports/index.html");
   
   // Use 'open' on macOS, 'xdg-open' on Linux, 'start' on Windows
   const openCommand = process.platform === "darwin" ? "open" 

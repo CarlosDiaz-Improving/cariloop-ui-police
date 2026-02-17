@@ -1,22 +1,5 @@
-import type { AppConfig } from "../types";
-import { interactionGroups, getAllInteractions } from "./interactions";
-
 /**
- * Cariloop Plan application configuration
+ * Cariloop Plan — interaction re-exports.
+ * App definition now lives in ui-police.config.ts.
  */
-export const planConfig: AppConfig = {
-  name: "plan",
-  displayName: "Cariloop Plan",
-  pathPrefix: "/plan",
-  readySelector: 'a[href*="/plan"]',
-  fallbackPages: [
-    "/plan/dashboard",
-    "/plan/care-concierge",
-    "/plan/resources",
-    "/plan/profile",
-  ],
-  interactionGroups,
-  getAllInteractions,
-};
-
-export default planConfig;
+export { interactionGroups, getAllInteractions } from "./interactions";

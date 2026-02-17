@@ -1,5 +1,6 @@
 {
   "name": "cariloop-ui-police",
+  "version": "1.0.0",
   "module": "index.ts",
   "type": "module",
   "private": true,

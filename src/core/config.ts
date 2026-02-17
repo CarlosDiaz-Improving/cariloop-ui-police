@@ -1,12 +1,25 @@
 /**
  * Core configuration module
- * 
- * This module provides shared configuration for environments, credentials,
- * viewport settings, and timeouts. App-specific configurations are in src/apps/.
+ *
+ * Reads non-sensitive settings from ui-police.config.ts (project root).
+ * Only credentials are read from .env via environment variables.
  */
 
-import { requireEnv, optionalEnv, requireNumber, optionalNumber, optionalBoolean } from "../utils/env";
-import { APPS, APP_LIST, type AppType, type AppConfig } from "../apps";
+import projectConfig from "../../ui-police.config";
+import { requireEnv } from "../utils/env";
+import type {
+  AppConfig,
+  AppDefinition,
+  EnvironmentDefinition,
+  ViewportPreset,
+  ViewportCustom,
+} from "../types/config";
+
+// ============================================
+// PROJECT CONFIG (re-export for convenience)
+// ============================================
+
+export { projectConfig };
 
 // ============================================
 // VIEWPORT CONFIGURATION
@@ -14,15 +27,6 @@ import { APPS, APP_LIST, type AppType, type AppConfig } from "../apps";
 
 /**
  * Viewport presets for common screen sizes
- * 
- * Recommended resolutions:
- * - desktop-hd:   1920x1080 (Full HD, most common desktop)
- * - desktop:      1440x900  (MacBook Pro 15", common laptop)
- * - laptop:       1366x768  (Most common laptop resolution)
- * - tablet:       1024x768  (iPad landscape)
- * - tablet-port:  768x1024  (iPad portrait)
- * - mobile:       375x812   (iPhone X/11/12/13)
- * - mobile-small: 320x568   (iPhone SE)
  */
 export const VIEWPORT_PRESETS: Record<string, { width: number; height: number }> = {
   "desktop-hd": { width: 1920, height: 1080 },
@@ -35,133 +39,197 @@ export const VIEWPORT_PRESETS: Record<string, { width: number; height: number }>
 };
 
 /**
- * Get viewport dimensions from environment or preset
- * 
- * Environment variables:
- * - VIEWPORT_PRESET: Use a named preset (desktop-hd, desktop, laptop, tablet, mobile)
- * - VIEWPORT_WIDTH: Custom width (overrides preset)
- * - VIEWPORT_HEIGHT: Custom height (overrides preset)
- * 
- * Default: desktop-hd (1920x1080)
+ * Get viewport dimensions from the central config
  */
 export function getViewport(): { width: number; height: number } {
-  const presetName = optionalEnv("VIEWPORT_PRESET") ?? "desktop-hd";
-  const preset = VIEWPORT_PRESETS[presetName] ?? VIEWPORT_PRESETS["desktop-hd"]!;
-  
-  return {
-    width: optionalNumber("VIEWPORT_WIDTH", preset.width),
-    height: optionalNumber("VIEWPORT_HEIGHT", preset.height),
-  };
+  const vp = projectConfig.capture.viewport;
+
+  // Custom dimensions
+  if ("width" in vp && "height" in vp) {
+    return { width: (vp as ViewportCustom).width, height: (vp as ViewportCustom).height };
+  }
+
+  // Preset
+  const presetName = (vp as ViewportPreset).preset ?? "desktop-hd";
+  return VIEWPORT_PRESETS[presetName] ?? VIEWPORT_PRESETS["desktop-hd"]!;
 }
 
-// Legacy export for backward compatibility
-export const viewport = getViewport();
+/**
+ * Get viewport as a display string (e.g., "1920x1080")
+ */
+export function getViewportString(): string {
+  const { width, height } = getViewport();
+  return `${width}x${height}`;
+}
 
 // ============================================
 // ENVIRONMENT CONFIGURATION
 // ============================================
 
-export interface EnvConfig {
-  name: string;
-  baseUrl: string;
-}
+export type EnvConfig = EnvironmentDefinition;
 
-export const environments: EnvConfig[] = [
-  {
-    name: "develop",
-    baseUrl: requireEnv("DEV_PLAN_URL"),
-  },
-  {
-    name: "local",
-    baseUrl: requireEnv("LOCAL_PLAN_URL"),
-  },
-];
+export const environments: EnvConfig[] = projectConfig.environments;
 
 // ============================================
 // CREDENTIALS
 // ============================================
 
 /**
- * Check if same credentials are used for both environments
+ * Check if same credentials are used for all environments
  */
 export function useSameCredentials(): boolean {
-  return optionalBoolean("USE_SAME_CREDENTIALS", false);
+  return projectConfig.useSameCredentials;
 }
 
 /**
- * Get credentials for a specific environment
- * 
- * When USE_SAME_CREDENTIALS=true, uses DEV credentials for both environments
- * When USE_SAME_CREDENTIALS=false, uses environment-specific credentials
+ * Get credentials for a specific environment.
+ *
+ * Reads from .env using the pattern:
+ *   {ENV_NAME_UPPER}_EMAIL / {ENV_NAME_UPPER}_PASSWORD
+ *
+ * When useSameCredentials is true, always uses the first environment's credentials.
  */
 export function getCredentials(envName: string): { email: string; password: string } {
-  if (useSameCredentials()) {
-    // When using same credentials, use DEV credentials for both
-    return {
-      email: requireEnv("DEV_CARILOOP_EMAIL"),
-      password: requireEnv("DEV_CARILOOP_PASSWORD"),
-    };
-  }
-  
-  // Different credentials per environment
-  if (envName === "local") {
-    return {
-      email: requireEnv("LOCAL_CARILOOP_EMAIL"),
-      password: requireEnv("LOCAL_CARILOOP_PASSWORD"),
-    };
-  }
-  
+  const targetEnv = useSameCredentials()
+    ? environments[0]!.name
+    : envName;
+
+  const prefix = targetEnv.toUpperCase();
   return {
-    email: requireEnv("DEV_CARILOOP_EMAIL"),
-    password: requireEnv("DEV_CARILOOP_PASSWORD"),
+    email: requireEnv(`${prefix}_EMAIL`),
+    password: requireEnv(`${prefix}_PASSWORD`),
   };
 }
 
 // ============================================
-// TIMEOUTS
+// TIMEOUTS & CAPTURE OPTIONS
 // ============================================
 
 export const timeouts = {
-  loginNavigation: requireNumber("LOGIN_NAV_TIMEOUT"),
-  loginRedirect: requireNumber("LOGIN_REDIRECT_TIMEOUT"),
-  loginFormReady: requireNumber("LOGIN_FORM_TIMEOUT"),
-  pageNavigation: requireNumber("PAGE_NAV_TIMEOUT"),
-  contentReady: requireNumber("CONTENT_READY_TIMEOUT"),
-  settleDelay: requireNumber("SETTLE_DELAY"),
+  loginNavigation: projectConfig.timeouts.loginNavigation,
+  loginRedirect: projectConfig.timeouts.loginRedirect,
+  loginFormReady: projectConfig.timeouts.loginFormReady,
+  pageNavigation: projectConfig.timeouts.pageNavigation,
+  contentReady: projectConfig.timeouts.contentReady,
+  settleDelay: projectConfig.capture.settleDelay,
 };
 
 export const retries = {
-  login: requireNumber("LOGIN_RETRIES"),
+  login: projectConfig.loginRetries,
 };
+
+export const captureOptions = projectConfig.capture;
+
+// ============================================
+// APP REGISTRY (built dynamically from config + interaction modules)
+// ============================================
+
+/** Map of app name → loaded AppConfig */
+const _appRegistry = new Map<string, AppConfig>();
+
+/** Ordered list of app names (display order from config) */
+export const APP_LIST: string[] = projectConfig.apps.map((a) => a.name);
+
+/**
+ * Load interactions for an app, if an interactions module exists.
+ * Returns empty arrays if no interactions module is found.
+ */
+function loadInteractions(appName: string): {
+  interactionGroups: AppConfig["interactionGroups"];
+  getAllInteractions: AppConfig["getAllInteractions"];
+} {
+  try {
+    // Dynamic require — each app may or may not have an interactions module
+    const mod = require(`../apps/${appName}/interactions`);
+    return {
+      interactionGroups: mod.interactionGroups ?? [],
+      getAllInteractions: mod.getAllInteractions ?? (() => []),
+    };
+  } catch {
+    return {
+      interactionGroups: [],
+      getAllInteractions: () => [],
+    };
+  }
+}
+
+/**
+ * Build the full runtime AppConfig from an AppDefinition + interactions
+ */
+function buildAppConfig(def: AppDefinition): AppConfig {
+  const interactions = loadInteractions(def.name);
+  return {
+    name: def.name,
+    displayName: def.displayName,
+    pathPrefix: def.pathPrefix,
+    readySelector: def.readySelector,
+    requiresAuth: def.requiresAuth,
+    fallbackPages: def.fallbackPages,
+    options: def.options ?? {},
+    interactionGroups: interactions.interactionGroups,
+    getAllInteractions: interactions.getAllInteractions,
+  };
+}
+
+// Initialize the registry
+for (const def of projectConfig.apps) {
+  _appRegistry.set(def.name, buildAppConfig(def));
+}
+
+/**
+ * Record-style accessor for all apps (keyed by name)
+ */
+export const APPS: Record<string, AppConfig> = Object.fromEntries(_appRegistry);
+
+/**
+ * Get app config by name
+ */
+export function getAppConfig(appName: string): AppConfig {
+  const config = _appRegistry.get(appName);
+  if (!config) {
+    throw new Error(`Unknown app: "${appName}". Available: ${APP_LIST.join(", ")}`);
+  }
+  return config;
+}
+
+/**
+ * Get all app configs in display order
+ */
+export function getAllApps(): AppConfig[] {
+  return APP_LIST.map((name) => _appRegistry.get(name)!);
+}
 
 // ============================================
 // CURRENT APP STATE
 // ============================================
 
-let currentApp: AppType = "admin";
+let currentApp: string = APP_LIST[0] ?? "admin";
 
-export function setCurrentApp(app: AppType): void {
+export function setCurrentApp(app: string): void {
+  if (!_appRegistry.has(app)) {
+    throw new Error(`Unknown app: "${app}". Available: ${APP_LIST.join(", ")}`);
+  }
   currentApp = app;
 }
 
-export function getCurrentApp(): AppType {
+export function getCurrentApp(): string {
   return currentApp;
 }
 
 export function getCurrentAppConfig(): AppConfig {
-  return APPS[currentApp];
+  return _appRegistry.get(currentApp)!;
 }
 
 // ============================================
 // OUTPUT DIRECTORIES
 // ============================================
 
-export function getScreenshotsDir(): string {
-  return `screenshots/cariloop-${currentApp}`;
+export function getOutputDir(): string {
+  return "output";
 }
 
 export function getReportsDir(): string {
-  return `reports/cariloop-${currentApp}`;
+  return `output/reports/cariloop-${currentApp}`;
 }
 
 // ============================================
@@ -169,8 +237,8 @@ export function getReportsDir(): string {
 // ============================================
 
 export function getFallbackPages(): string[] {
-  return APPS[currentApp].fallbackPages;
+  return getCurrentAppConfig().fallbackPages;
 }
 
-// Re-export app-related items
-export { APPS, APP_LIST, type AppType, type AppConfig };
+// Re-export types
+export type { AppConfig, EnvConfig as EnvironmentConfig };

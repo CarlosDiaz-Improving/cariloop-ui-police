@@ -3,7 +3,8 @@ import { log, style, symbols } from "../../utils/terminal";
 import { optionalEnv } from "../../utils/env";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
-import { getScreenshotsDir } from "../../core/config";
+import { getCurrentApp } from "../../core/config";
+import { getAppDir } from "../../core/runs";
 
 /**
  * Registration flow for cariloop-auth.
@@ -37,7 +38,7 @@ interface UserPoolState {
 }
 
 function getPoolFilePath(): string {
-  return path.join(getScreenshotsDir(), "user-pool.json");
+  return path.join(getAppDir(getCurrentApp()), "user-pool.json");
 }
 
 function loadPoolState(): UserPoolState {
@@ -354,7 +355,7 @@ async function captureFullFlow(
   const email = getNextAvailableUser();
   if (!email) {
     log.error("No test users available! All 10 fred users have been consumed.");
-    log.action("Reset the user pool by deleting screenshots/cariloop-auth/user-pool.json");
+    log.action("Reset the user pool by deleting output/captures/auth/user-pool.json");
     return { screenshots, userConsumed: null };
   }
 
